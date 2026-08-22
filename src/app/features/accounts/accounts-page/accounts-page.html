@@ -1,0 +1,16 @@
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Your financial foundation</p>
+    <h1>Accounts</h1>
+    <p>Keep checking, savings, credit, cash, and loan balances in one clear view.</p>
+  </div>
+  <a routerLink="/accounts/new" class="primary-button">+ Add account</a>
+</header>
+<app-page-state
+  kind="empty"
+  title="No accounts to show yet"
+  message="Create your first account to begin building a complete picture of your finances."
+  actionLabel="Create an account"
+  (action)="createLink.click()"
+/>
+<a #createLink routerLink="/accounts/new" class="visually-hidden">Create an account</a>

@@ -1,0 +1,30 @@
+<div class="shell">
+  <header class="mobile-header">
+    <a routerLink="/overview" class="mobile-brand">Personal Finance</a>
+    <button type="button" class="icon-button" (click)="menuOpen.set(!menuOpen())" [attr.aria-expanded]="menuOpen()" aria-controls="primary-navigation" aria-label="Toggle navigation">☰</button>
+  </header>
+
+  @if (menuOpen()) { <button type="button" class="scrim" (click)="menuOpen.set(false)" aria-label="Close navigation"></button> }
+
+  <aside class="sidebar" [class.open]="menuOpen()">
+    <a routerLink="/overview" class="brand">Personal Finance</a>
+    <nav id="primary-navigation" aria-label="Primary navigation">
+      @for (item of navItems; track item.path) {
+        <a [routerLink]="item.path" routerLinkActive="active" (click)="menuOpen.set(false)">
+          <span class="nav-icon" aria-hidden="true">{{ item.icon }}</span><span>{{ item.label }}</span>
+        </a>
+      }
+    </nav>
+    <div class="sidebar-footer">
+      <button type="button" class="theme-toggle" (click)="theme.toggle()">
+        <span aria-hidden="true">{{ theme.mode() === 'light' ? '☾' : '☀' }}</span>
+        <span>{{ theme.mode() === 'light' ? 'Dark mode' : 'Light mode' }}</span>
+      </button>
+    </div>
+  </aside>
+
+  <main id="main-content" tabindex="-1">
+    <router-outlet />
+  </main>
+  <app-notification-center />
+</div>
