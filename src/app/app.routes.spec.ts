@@ -9,13 +9,26 @@ describe('application routes', () => {
 
   it('defines every durable feature route with a title and lazy loader', () => {
     const shell = routes.find((route) => route.path === '');
-    const expected = ['overview', 'accounts', 'transactions', 'categories', 'imports', 'reports', 'settings'];
+    const expected = ['overview', 'transactions', 'categories', 'imports', 'reports', 'settings'];
 
     for (const path of expected) {
       const route = shell?.children?.find((candidate) => candidate.path === path);
       expect(route?.title).toBe(`${path[0].toUpperCase()}${path.slice(1)} · Personal Finance`);
       expect(route?.loadComponent).toBeTypeOf('function');
     }
+  });
+
+  it('defines lazy account entry and protected creation routes', () => {
+    const shell = routes.find((route) => route.path === '');
+    const accounts = shell?.children?.find((route) => route.path === 'accounts');
+    const landing = accounts?.children?.find((route) => route.path === '');
+    const create = accounts?.children?.find((route) => route.path === 'new');
+
+    expect(accounts?.title).toBe('Accounts · Personal Finance');
+    expect(landing?.loadComponent).toBeTypeOf('function');
+    expect(create?.title).toBe('Add account · Personal Finance');
+    expect(create?.loadComponent).toBeTypeOf('function');
+    expect(create?.canDeactivate).toHaveLength(1);
   });
 
   it('provides a lazy wildcard route with a not-found title', () => {

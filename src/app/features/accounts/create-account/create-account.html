@@ -1,0 +1,62 @@
+<header class="page-header">
+  <a routerLink="/accounts" class="back-link">← Accounts</a>
+  <p class="eyebrow">New financial account</p>
+  <h1>Add an account</h1>
+  <p>Enter the starting details. You can update the account later without losing its history.</p>
+</header>
+<form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  <section class="form-card" aria-labelledby="account-details-heading">
+    <header>
+      <span class="step">1</span>
+      <div><h2 id="account-details-heading">Account details</h2><p>Fields marked required must be completed.</p></div>
+    </header>
+    <div class="field full-width">
+      <label for="account-name">Account name <span aria-hidden="true">*</span></label>
+      <input id="account-name" type="text" formControlName="name" maxlength="100" autocomplete="off"
+        [attr.aria-invalid]="form.controls.name.invalid && form.controls.name.touched"
+        [attr.aria-describedby]="form.controls.name.invalid && form.controls.name.touched || serverFieldErrors()['name'] ? 'account-name-error' : null" />
+      <small>For example, Everyday Checking or Travel Rewards.</small>
+      @if (form.controls.name.touched && form.controls.name.hasError('required')) { <p id="account-name-error" class="field-error">Enter an account name.</p> }
+      @else if (form.controls.name.touched && form.controls.name.hasError('maxlength')) { <p id="account-name-error" class="field-error">Use 100 characters or fewer.</p> }
+      @else if (serverFieldErrors()['name']) { <p id="account-name-error" class="field-error">{{ serverFieldErrors()['name'] }}</p> }
+    </div>
+    <div class="field">
+      <label for="account-type">Account type <span aria-hidden="true">*</span></label>
+      <select id="account-type" formControlName="type">
+        @for (type of accountTypes; track type.value) { <option [value]="type.value">{{ type.label }}</option> }
+      </select>
+      @if (serverFieldErrors()['type']) { <p class="field-error">{{ serverFieldErrors()['type'] }}</p> }
+    </div>
+    <div class="field">
+      <label for="currency">Currency <span aria-hidden="true">*</span></label>
+      <input id="currency" type="text" formControlName="currency" maxlength="3" autocapitalize="characters" autocomplete="off"
+        [attr.aria-invalid]="form.controls.currency.invalid && form.controls.currency.touched"
+        [attr.aria-describedby]="form.controls.currency.invalid && form.controls.currency.touched || serverFieldErrors()['currency'] ? 'currency-error' : null" />
+      <small>Three-letter code, such as USD.</small>
+      @if (form.controls.currency.touched && form.controls.currency.invalid) { <p id="currency-error" class="field-error">Enter a three-letter currency code.</p> }
+      @else if (serverFieldErrors()['currency']) { <p id="currency-error" class="field-error">{{ serverFieldErrors()['currency'] }}</p> }
+    </div>
+    <div class="field">
+      <label for="opening-date">Opening date <span aria-hidden="true">*</span></label>
+      <input id="opening-date" type="date" formControlName="openingDate"
+        [attr.aria-invalid]="form.controls.openingDate.invalid && form.controls.openingDate.touched" />
+      @if (form.controls.openingDate.touched && form.controls.openingDate.invalid) { <p class="field-error">Choose an opening date.</p> }
+      @else if (serverFieldErrors()['openingDate']) { <p class="field-error">{{ serverFieldErrors()['openingDate'] }}</p> }
+    </div>
+    <div class="field">
+      <label for="opening-balance">Opening balance <span class="optional">(optional)</span></label>
+      <div class="money-input"><span aria-hidden="true">$</span><input id="opening-balance" type="number" formControlName="openingBalance" step="0.01" inputmode="decimal" placeholder="0.00"
+        [attr.aria-invalid]="form.controls.openingBalance.invalid && form.controls.openingBalance.touched"
+        [attr.aria-describedby]="form.controls.openingBalance.invalid && form.controls.openingBalance.touched || serverFieldErrors()['openingBalance'] ? 'opening-balance-error' : null" /></div>
+      <small>Use a negative amount when the account begins with debt.</small>
+      @if (form.controls.openingBalance.touched && form.controls.openingBalance.invalid) { <p id="opening-balance-error" class="field-error">Enter no more than 17 digits and two decimal places.</p> }
+      @else if (serverFieldErrors()['openingBalance']) { <p id="opening-balance-error" class="field-error">{{ serverFieldErrors()['openingBalance'] }}</p> }
+    </div>
+  </section>
+  <footer class="form-actions">
+    <a routerLink="/accounts" class="cancel-button">Cancel</a>
+    <button type="submit" class="primary-button" [disabled]="submission.busy()">
+      @if (submission.busy()) { <span class="spinner" aria-hidden="true"></span> Saving account… } @else { Add account }
+    </button>
+  </footer>
+</form>
