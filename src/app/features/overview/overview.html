@@ -1,0 +1,35 @@
+<header class="page-header">
+  <div><p class="eyebrow">Good afternoon, Bradley</p><h1>Overview</h1><p>Here is how your finances are looking this month.</p></div>
+  <button type="button" class="secondary-button" (click)="announceDemo()">↻ Refresh</button>
+</header>
+
+<section class="summary-grid" aria-label="Financial summary">
+  @for (item of summary; track item.label) {
+    <article class="summary-card" [class]="'summary-card ' + item.tone">
+      <span>{{ item.label }}</span><strong>{{ item.value | currency:'USD':'symbol':'1.0-0' }}</strong><small>{{ item.detail }}</small>
+    </article>
+  }
+</section>
+
+<section class="dashboard-grid">
+  <article class="panel chart-panel">
+    <header><div><p class="eyebrow">Last 6 months</p><h2>Net worth</h2></div><strong>$128,450</strong></header>
+    <div class="chart" role="img" aria-label="Net worth increased from 90,000 dollars to 128,450 dollars over six months">
+      <svg viewBox="0 0 720 220" preserveAspectRatio="none" aria-hidden="true">
+        <defs><linearGradient id="chart-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--color-positive)" stop-opacity=".25"/><stop offset="1" stop-color="var(--color-positive)" stop-opacity="0"/></linearGradient></defs>
+        <path class="area" d="M0 180 C90 175 100 145 180 150 S275 110 355 120 S445 90 500 105 S610 55 720 45 L720 220 L0 220 Z"/>
+        <path class="line" d="M0 180 C90 175 100 145 180 150 S275 110 355 120 S445 90 500 105 S610 55 720 45"/>
+      </svg>
+      <div class="chart-labels"><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span></div>
+    </div>
+  </article>
+
+  <article class="panel activity-panel">
+    <header><div><p class="eyebrow">This week</p><h2>Recent activity</h2></div><a href="/transactions">View all</a></header>
+    <ul>
+      <li><span class="activity-icon expense">−</span><div><strong>Groceries</strong><small>Everyday Checking</small></div><b>−$84.26</b></li>
+      <li><span class="activity-icon income">+</span><div><strong>Salary deposit</strong><small>Everyday Checking</small></div><b class="positive">+$4,100.00</b></li>
+      <li><span class="activity-icon expense">−</span><div><strong>Electricity</strong><small>Rewards Card</small></div><b>−$87.30</b></li>
+    </ul>
+  </article>
+</section>
