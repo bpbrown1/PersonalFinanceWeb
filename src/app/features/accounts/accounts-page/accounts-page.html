@@ -1,0 +1,38 @@
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Your financial foundation</p>
+    <h1>Accounts</h1>
+    <p>Keep balances and account status in one clear view.</p>
+  </div>
+  <a routerLink="/accounts/new" class="primary-button">+ Add account</a>
+</header>
+<nav class="filters" aria-label="Account status">
+  <button type="button" [class.selected]="filter() === 'active'" [attr.aria-pressed]="filter() === 'active'" (click)="selectFilter('active')">Active</button>
+  <button type="button" [class.selected]="filter() === 'archived'" [attr.aria-pressed]="filter() === 'archived'" (click)="selectFilter('archived')">Archived</button>
+</nav>
+@if (loading()) {
+  <app-page-state kind="loading" title="Loading accounts" message="Retrieving your latest account information." />
+} @else if (error()) {
+  <app-page-state kind="error" title="Accounts unavailable" [message]="error()!.userMessage" actionLabel="Try again" (action)="load()" />
+} @else if (accounts().length === 0) {
+  <app-page-state kind="empty" [title]="filter() === 'archived' ? 'No archived accounts' : 'No accounts to show yet'"
+    [message]="filter() === 'archived' ? 'Accounts you archive will appear here.' : 'Create your first account to begin building a complete picture of your finances.'"
+    [actionLabel]="filter() === 'active' ? 'Create an account' : undefined" (action)="createLink.click()" />
+  <a #createLink routerLink="/accounts/new" class="visually-hidden">Create an account</a>
+} @else {
+  <section class="account-grid" aria-live="polite">
+    @for (account of accounts(); track account.id) {
+      <article class="account-card" [class.archived]="account.status === 'archived'">
+        <header><span class="type-icon" aria-hidden="true">{{ account.type === 'credit_card' ? '▣' : '▤' }}</span><span class="status">{{ account.status }}</span></header>
+        <div><p class="account-type">{{ account.type.replace('_', ' ') | titlecase }}</p><h2>{{ account.name }}</h2></div>
+        <p class="balance">{{ account.currentBalance | currency:account.currency:'symbol':'1.2-2' }}</p>
+        <p class="currency">{{ account.currency }} · Opened {{ account.openingDate | date:'mediumDate' }}</p>
+        <footer>
+          <a class="card-link" [routerLink]="['/accounts', account.id]" [attr.aria-label]="'View and edit ' + account.name">View and edit</a>
+          @if (account.status === 'active') { <button type="button" class="secondary" [disabled]="changingId() === account.id" (click)="archive(account)">Archive</button> }
+          @else { <button type="button" class="secondary" [disabled]="changingId() === account.id" (click)="restore(account)">Restore</button> }
+        </footer>
+      </article>
+    }
+  </section>
+}
