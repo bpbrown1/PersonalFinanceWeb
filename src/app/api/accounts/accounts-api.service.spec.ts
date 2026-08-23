@@ -29,7 +29,7 @@ describe('AccountsApiService', () => {
   it('retrieves typed accounts from the versioned endpoint', async () => {
     const account = accountFixture();
     const result = firstValueFrom(service.list());
-    const request = http.expectOne('http://localhost:8080/api/v1/accounts');
+    const request = http.expectOne('http://localhost:8080/api/v1/accounts?status=active');
     expect(request.request.method).toBe('GET');
     request.flush([account]);
     await expect(result).resolves.toEqual([account]);
@@ -58,6 +58,28 @@ describe('AccountsApiService', () => {
     expect(request.request.body).toEqual(body);
     request.flush(accountFixture());
     await expect(result).resolves.toEqual(accountFixture());
+  });
+
+  it('filters lists and supports update, archive, and restore', async () => {
+    const account = accountFixture();
+    const listResult = firstValueFrom(service.list('archived'));
+    http.expectOne('http://localhost:8080/api/v1/accounts?status=archived').flush([account]);
+    await expect(listResult).resolves.toEqual([account]);
+
+    const updateResult = firstValueFrom(service.update(account.id, { name: 'Primary Checking' }));
+    const updateRequest = http.expectOne(`http://localhost:8080/api/v1/accounts/${account.id}`);
+    expect(updateRequest.request.method).toBe('PATCH');
+    expect(updateRequest.request.body).toEqual({ name: 'Primary Checking' });
+    updateRequest.flush({ ...account, name: 'Primary Checking' });
+    await updateResult;
+
+    for (const action of ['archive', 'restore'] as const) {
+      const result = firstValueFrom(service[action](account.id));
+      const request = http.expectOne(`http://localhost:8080/api/v1/accounts/${account.id}/${action}`);
+      expect(request.request.method).toBe('POST');
+      request.flush(account);
+      await result;
+    }
   });
 
   it('normalizes validation responses and retains field errors', async () => {
@@ -94,6 +116,9 @@ function accountFixture(): FinancialAccount {
     currency: 'USD',
     openingDate: '2026-08-22',
     openingBalance: 1250.75,
+    currentBalance: 1250.75,
+    status: 'active',
+    archivedAt: null,
     createdAt: '2026-08-22T18:30:00Z',
     updatedAt: '2026-08-22T18:30:00Z',
   };

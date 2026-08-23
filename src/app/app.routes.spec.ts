@@ -18,17 +18,21 @@ describe('application routes', () => {
     }
   });
 
-  it('defines lazy account entry and protected creation routes', () => {
+  it('defines lazy account entry, creation, and protected detail routes', () => {
     const shell = routes.find((route) => route.path === '');
     const accounts = shell?.children?.find((route) => route.path === 'accounts');
     const landing = accounts?.children?.find((route) => route.path === '');
     const create = accounts?.children?.find((route) => route.path === 'new');
+    const detail = accounts?.children?.find((route) => route.path === ':accountId');
 
     expect(accounts?.title).toBe('Accounts · Personal Finance');
     expect(landing?.loadComponent).toBeTypeOf('function');
     expect(create?.title).toBe('Add account · Personal Finance');
     expect(create?.loadComponent).toBeTypeOf('function');
     expect(create?.canDeactivate).toHaveLength(1);
+    expect(detail?.title).toBe('Account details · Personal Finance');
+    expect(detail?.loadComponent).toBeTypeOf('function');
+    expect(detail?.canDeactivate).toHaveLength(1);
   });
 
   it('provides a lazy wildcard route with a not-found title', () => {

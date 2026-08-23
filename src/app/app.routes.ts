@@ -26,6 +26,12 @@ export const routes: Routes = [
             canDeactivate: [pendingChangesGuard],
             loadComponent: () => import('./features/accounts/create-account/create-account').then((m) => m.CreateAccount),
           },
+          {
+            path: ':accountId',
+            title: 'Account details · Personal Finance',
+            canDeactivate: [pendingChangesGuard],
+            loadComponent: () => import('./features/accounts/account-detail/account-detail').then((m) => m.AccountDetail),
+          },
         ],
       },
       ...['transactions', 'categories', 'imports', 'reports', 'settings'].map(

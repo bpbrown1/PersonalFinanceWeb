@@ -8,15 +8,29 @@ export interface FinancialAccount {
   currency: string;
   openingDate: string;
   openingBalance: number;
+  currentBalance: number;
+  status: AccountStatus;
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
+export type AccountStatus = 'active' | 'archived';
+export type AccountStatusFilter = AccountStatus | 'all';
 
 export interface CreateFinancialAccountRequest {
   name: string;
   type: AccountType;
   currency: string;
   openingDate: string;
+  openingBalance?: number;
+}
+
+export interface UpdateFinancialAccountRequest {
+  name?: string;
+  type?: AccountType;
+  currency?: string;
+  openingDate?: string;
   openingBalance?: number;
 }
 

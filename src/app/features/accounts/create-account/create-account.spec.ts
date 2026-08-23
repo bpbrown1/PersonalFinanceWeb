@@ -133,6 +133,9 @@ function accountFixture(): FinancialAccount {
     currency: 'USD',
     openingDate: '2026-08-22',
     openingBalance: 1250.75,
+    currentBalance: 1250.75,
+    status: 'active',
+    archivedAt: null,
     createdAt: '2026-08-22T18:30:00Z',
     updatedAt: '2026-08-22T18:30:00Z',
   };
