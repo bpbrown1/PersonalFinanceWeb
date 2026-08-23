@@ -1,0 +1,242 @@
+.transaction-form {
+  grid-template-columns: minmax(12rem, 0.45fr) minmax(0, 1.55fr);
+}
+.transaction-form form,
+.edit-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+.transaction-form .description,
+.edit-form .description {
+  grid-column: span 2;
+}
+.transaction-form .notes,
+.edit-form .notes {
+  grid-column: span 3;
+}
+label span {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+textarea {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  resize: vertical;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 0.6rem;
+  color: var(--color-text);
+  background: var(--color-canvas);
+}
+.summary-panel {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background: var(--color-surface);
+}
+.summary-panel h2 {
+  margin: 0.15rem 0 0.25rem;
+  font-size: 1.1rem;
+}
+.summary-panel > div:first-child > p:last-child,
+.summary-empty {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+.summary-controls {
+  display: flex;
+  gap: 0.7rem;
+  align-items: end;
+}
+.summary-empty {
+  margin: 0 0 1.25rem;
+  padding: 1rem;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 0.8rem;
+}
+.summaries {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 0.8rem;
+  margin-bottom: 1.25rem;
+}
+.summaries article,
+.transaction-card {
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background: var(--color-surface);
+}
+.summaries article {
+  padding: 1rem;
+}
+.summaries header,
+.transaction-card footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.summaries h2 {
+  font-size: 1rem;
+}
+.summaries header span {
+  color: var(--color-primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.summaries dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+}
+.summaries dl div {
+  display: grid;
+  gap: 0.25rem;
+}
+dt {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+dd {
+  margin: 0;
+  font-weight: 800;
+}
+.summaries .income dd,
+.transaction-card.income .transaction-type,
+.transaction-card.income .type-mark {
+  color: var(--color-positive);
+}
+.summaries .expense dd,
+.negative,
+.transaction-card:not(.income) .transaction-type,
+.transaction-card:not(.income) .type-mark {
+  color: var(--color-negative);
+}
+.ledger {
+  display: grid;
+  gap: 0.8rem;
+}
+.transaction-card {
+  display: grid;
+  gap: 1rem;
+  padding: 1.15rem;
+  border-inline-start: 4px solid var(--color-negative);
+}
+.transaction-card.income {
+  border-inline-start-color: var(--color-positive);
+}
+.transaction-card.deleted {
+  border-style: dashed;
+  opacity: 0.88;
+}
+.transaction-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.85rem;
+  align-items: center;
+}
+.type-mark {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.65rem;
+  background: var(--color-canvas);
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+.transaction-type {
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.transaction-main h2 {
+  margin: 0.12rem 0 0.2rem;
+  font-size: 1.1rem;
+}
+.transaction-main p:last-child,
+.deleted-note {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+}
+.transaction-main strong {
+  font-size: 1.15rem;
+}
+.transaction-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  margin: 0;
+  padding: 1rem 0;
+  border-block: 1px solid var(--color-border);
+}
+.transaction-details div {
+  display: grid;
+  gap: 0.2rem;
+  max-width: 28rem;
+}
+.transaction-card footer {
+  justify-content: flex-end;
+}
+.edit-form footer,
+.edit-form .form-error {
+  grid-column: 1/-1;
+}
+.danger {
+  color: var(--color-negative);
+  border-color: var(--color-negative);
+}
+@media (max-width: 64rem) {
+  .transaction-form {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 52rem) {
+  .summary-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .transaction-form form,
+  .edit-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .transaction-form .notes,
+  .edit-form .notes {
+    grid-column: 1/-1;
+  }
+}
+@media (max-width: 38rem) {
+  .summary-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .transaction-form form,
+  .edit-form {
+    grid-template-columns: 1fr;
+  }
+  .transaction-form .description,
+  .transaction-form .notes,
+  .edit-form .description,
+  .edit-form .notes {
+    grid-column: auto;
+  }
+  .transaction-main {
+    grid-template-columns: auto 1fr;
+  }
+  .transaction-main strong {
+    grid-column: 2;
+  }
+  .summaries dl {
+    grid-template-columns: 1fr;
+  }
+}

@@ -46,6 +46,14 @@ describe('application routes', () => {
     expect(categories?.canDeactivate).toHaveLength(1);
   });
 
+  it('protects the lazy transaction workspace from losing unsaved changes', () => {
+    const shell = routes.find((route) => route.path === '');
+    const transactions = shell?.children?.find((route) => route.path === 'transactions');
+    expect(transactions?.title).toBe('Transactions · Personal Finance');
+    expect(transactions?.loadComponent).toBeTypeOf('function');
+    expect(transactions?.canDeactivate).toHaveLength(1);
+  });
+
   it('provides a lazy wildcard route with a not-found title', () => {
     const wildcard = routes.find((route) => route.path === '**');
     expect(wildcard?.title).toBe('Page not found · Personal Finance');
