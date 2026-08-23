@@ -14,7 +14,13 @@
   --color-negative: #d85d55;
   --color-negative-soft: #fde9e7;
   --shadow-raised: 0 16px 40px rgb(17 33 59 / 14%);
-  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
   font-synthesis: none;
 }
 
@@ -35,10 +41,45 @@
   --shadow-raised: 0 16px 40px rgb(0 0 0 / 28%);
 }
 
-* { box-sizing: border-box; }
-html { min-width: 20rem; background: var(--color-canvas); }
-body { min-height: 100dvh; margin: 0; color: var(--color-text); background: var(--color-canvas); }
-button, input, select, textarea { font: inherit; }
-button, a { -webkit-tap-highlight-color: transparent; }
-:focus-visible { outline: 3px solid var(--color-teal-bright); outline-offset: 2px; }
-::selection { color: var(--color-text); background: var(--color-primary-soft); }
+* {
+  box-sizing: border-box;
+}
+html {
+  min-width: 20rem;
+  background: var(--color-canvas);
+}
+body {
+  min-height: 100dvh;
+  margin: 0;
+  color: var(--color-text);
+  background: var(--color-canvas);
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+:focus-visible {
+  outline: 3px solid var(--color-teal-bright);
+  outline-offset: 2px;
+}
+::selection {
+  color: var(--color-text);
+  background: var(--color-primary-soft);
+}
+input[aria-invalid='true'],
+select[aria-invalid='true'],
+textarea[aria-invalid='true'] {
+  border-color: var(--color-negative);
+  box-shadow: 0 0 0 1px var(--color-negative);
+}
+.field-error {
+  color: var(--color-negative);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
