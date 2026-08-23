@@ -14,6 +14,6 @@ describe('pendingChangesGuard', () => {
     vi.spyOn(globalThis, 'confirm').mockReturnValue(false);
     const result = pendingChangesGuard({ hasPendingChanges: () => true }, {} as never, {} as never, {} as never);
     expect(result).toBe(false);
-    expect(globalThis.confirm).toHaveBeenCalledWith('You have unsaved account changes. Leave this page?');
+    expect(globalThis.confirm).toHaveBeenCalledWith('You have unsaved changes. Leave this page?');
   });
 });

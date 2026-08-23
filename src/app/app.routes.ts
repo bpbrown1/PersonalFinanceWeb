@@ -39,7 +39,13 @@ export const routes: Routes = [
           },
         ],
       },
-      ...['transactions', 'categories', 'imports', 'reports', 'settings'].map(
+      {
+        path: 'categories',
+        title: 'Categories · Personal Finance',
+        canDeactivate: [pendingChangesGuard],
+        loadComponent: () => import('./features/categories/categories-page/categories-page').then((m) => m.CategoriesPage),
+      },
+      ...['transactions', 'imports', 'reports', 'settings'].map(
         (path): Routes[number] => ({
           path,
           title: `${path[0].toUpperCase()}${path.slice(1)} · Personal Finance`,

@@ -38,6 +38,14 @@ describe('application routes', () => {
     expect(history?.loadComponent).toBeTypeOf('function');
   });
 
+  it('protects the lazy category management route from losing unsaved changes', () => {
+    const shell = routes.find((route) => route.path === '');
+    const categories = shell?.children?.find((route) => route.path === 'categories');
+    expect(categories?.title).toBe('Categories · Personal Finance');
+    expect(categories?.loadComponent).toBeTypeOf('function');
+    expect(categories?.canDeactivate).toHaveLength(1);
+  });
+
   it('provides a lazy wildcard route with a not-found title', () => {
     const wildcard = routes.find((route) => route.path === '**');
     expect(wildcard?.title).toBe('Page not found · Personal Finance');
