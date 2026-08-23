@@ -57,7 +57,8 @@ describe('AccountHistory', () => {
   it('looks up an as-of date and presents the exact effective snapshot', () => {
     const fixture=TestBed.createComponent(AccountHistory); fixture.detectChanges();
     (fixture.componentInstance as any).asOfDate.set('2026-08-20'); (fixture.componentInstance as any).findAsOf(); fixture.detectChanges();
-    expect(balances.asOf).toHaveBeenCalledWith(account.id,expect.stringContaining('2026-08-21T04:59:59.999Z'));
+    const expectedInstant = new Date('2026-08-20T23:59:59.999').toISOString();
+    expect(balances.asOf).toHaveBeenCalledWith(account.id, expectedInstant);
     expect(fixture.nativeElement.querySelector('.as-of-result').textContent).toContain('$1,400.00');
   });
 

@@ -7,6 +7,7 @@ export interface TransactionCategory {
   ownerId: string;
   name: string;
   applicability: CategoryApplicability;
+  parentId: string | null;
   status: CategoryStatus;
   archivedAt: string | null;
   createdAt: string;
@@ -16,9 +17,14 @@ export interface TransactionCategory {
 export interface CreateCategoryRequest {
   name: string;
   applicability: CategoryApplicability;
+  parentId: string | null;
 }
 
 export interface UpdateCategoryRequest {
   name?: string;
   applicability?: CategoryApplicability;
+}
+
+export interface UpdateCategoryParentRequest {
+  parentId: string | null;
 }
