@@ -2,7 +2,13 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api.providers';
-import { CategoryStatusFilter, CreateCategoryRequest, TransactionCategory, UpdateCategoryRequest } from './category.models';
+import {
+  CategoryStatusFilter,
+  CreateCategoryRequest,
+  TransactionCategory,
+  UpdateCategoryParentRequest,
+  UpdateCategoryRequest,
+} from './category.models';
 
 @Injectable({ providedIn: 'root' })
 export class CategoriesApiService {
@@ -23,6 +29,10 @@ export class CategoriesApiService {
 
   update(id: string, request: UpdateCategoryRequest): Observable<TransactionCategory> {
     return this.http.patch<TransactionCategory>(this.categoryUrl(id), request);
+  }
+
+  updateParent(id: string, request: UpdateCategoryParentRequest): Observable<TransactionCategory> {
+    return this.http.patch<TransactionCategory>(this.categoryUrl(id) + '/parent', request);
   }
 
   archive(id: string): Observable<TransactionCategory> {

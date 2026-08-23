@@ -1,65 +1,291 @@
 <header class="page-header">
-  <div><p class="eyebrow">Organize financial activity</p><h1>Categories</h1><p>Create reusable labels for income and spending without removing historical references.</p></div>
+  <div>
+    <p class="eyebrow">Organize financial activity</p>
+    <h1>Categories</h1>
+    <p>Create reusable labels for income and spending without removing historical references.</p>
+  </div>
 </header>
 
 <section class="create-panel" aria-labelledby="create-category-heading">
-  <div><h2 id="create-category-heading">Add a category</h2><p>Names must be unique among active categories.</p></div>
+  <div>
+    <h2 id="create-category-heading">Add a category</h2>
+    <p>Names must be unique among active categories.</p>
+  </div>
   <form [formGroup]="createForm" (ngSubmit)="create()" novalidate>
-    <div class="field"><label for="new-category-name">Category name</label><input id="new-category-name" type="text" formControlName="name" maxlength="100" autocomplete="off" (input)="createError.set(null)"
-      [attr.aria-invalid]="createForm.controls.name.invalid && createForm.controls.name.touched || createError() ? true : null"
-      [attr.aria-describedby]="createForm.controls.name.invalid && createForm.controls.name.touched || createError() ? 'new-category-name-error' : null" />
-      @if (createForm.controls.name.touched && createForm.controls.name.hasError('required')) { <p id="new-category-name-error" class="field-error">Enter a category name.</p> }
-      @else if (createForm.controls.name.touched && createForm.controls.name.hasError('maxlength')) { <p id="new-category-name-error" class="field-error">Use 100 characters or fewer.</p> }
-      @else if (createError()) { <p id="new-category-name-error" class="field-error" role="alert">{{ nameError(createError()) }}</p> }
+    <div class="field">
+      <label for="new-category-name">Category name</label
+      ><input
+        id="new-category-name"
+        type="text"
+        formControlName="name"
+        maxlength="100"
+        autocomplete="off"
+        (input)="createError.set(null)"
+        [attr.aria-invalid]="
+          (createForm.controls.name.invalid && createForm.controls.name.touched) || createError()
+            ? true
+            : null
+        "
+        [attr.aria-describedby]="
+          (createForm.controls.name.invalid && createForm.controls.name.touched) || createError()
+            ? 'new-category-name-error'
+            : null
+        "
+      />
+      @if (createForm.controls.name.touched && createForm.controls.name.hasError('required')) {
+        <p id="new-category-name-error" class="field-error">Enter a category name.</p>
+      } @else if (
+        createForm.controls.name.touched && createForm.controls.name.hasError('maxlength')
+      ) {
+        <p id="new-category-name-error" class="field-error">Use 100 characters or fewer.</p>
+      } @else if (nameError(createError())) {
+        <p id="new-category-name-error" class="field-error" role="alert">
+          {{ nameError(createError()) }}
+        </p>
+      }
     </div>
-    <div class="field"><label for="new-category-applicability">Used for</label><select id="new-category-applicability" formControlName="applicability">
-      @for (option of applicabilityOptions; track option.value) { <option [value]="option.value">{{ option.label }}</option> }
-    </select></div>
-    <button type="submit" class="primary-button" [disabled]="createSubmission.busy()">{{ createSubmission.busy() ? 'Adding…' : 'Add category' }}</button>
+    <div class="field">
+      <label for="new-category-applicability">Used for</label
+      ><select id="new-category-applicability" formControlName="applicability">
+        @for (option of applicabilityOptions; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </div>
+    <div class="field">
+      <label for="new-category-parent">Parent category</label
+      ><select
+        id="new-category-parent"
+        formControlName="parentId"
+        (change)="createError.set(null)"
+        [attr.aria-invalid]="parentError(createError()) ? true : null"
+        [attr.aria-describedby]="
+          parentError(createError()) ? 'new-category-parent-error' : 'new-category-parent-help'
+        "
+      >
+        <option value="">No parent (root)</option>
+        @for (category of activeParentOptions(); track category.id) {
+          <option [value]="category.id">{{ parentPath(category) }}</option>
+        }
+      </select>
+      <p id="new-category-parent-help" class="field-help">Only active categories can be parents.</p>
+      @if (parentError(createError())) {
+        <p id="new-category-parent-error" class="field-error" role="alert">
+          {{ parentError(createError()) }}
+        </p>
+      }
+    </div>
+    <button type="submit" class="primary-button" [disabled]="mutationBusy()">
+      {{ createSubmission.busy() ? 'Adding…' : 'Add category' }}
+    </button>
+    @if (formError(createError())) {
+      <p class="form-error field-error" role="alert">{{ formError(createError()) }}</p>
+    }
   </form>
 </section>
 
 <nav class="filters" aria-label="Category status">
-  <button type="button" [class.selected]="filter() === 'active'" [attr.aria-pressed]="filter() === 'active'" (click)="selectFilter('active')">Active</button>
-  <button type="button" [class.selected]="filter() === 'archived'" [attr.aria-pressed]="filter() === 'archived'" (click)="selectFilter('archived')">Archived</button>
+  <button
+    type="button"
+    [class.selected]="filter() === 'active'"
+    [attr.aria-pressed]="filter() === 'active'"
+    (click)="selectFilter('active')"
+  >
+    Active
+  </button>
+  <button
+    type="button"
+    [class.selected]="filter() === 'archived'"
+    [attr.aria-pressed]="filter() === 'archived'"
+    (click)="selectFilter('archived')"
+  >
+    Archived
+  </button>
 </nav>
 
 @if (loading()) {
-  <app-page-state kind="loading" title="Loading categories" message="Retrieving your transaction categories." />
+  <app-page-state
+    kind="loading"
+    title="Loading categories"
+    message="Retrieving your transaction categories."
+  />
 } @else if (loadError()) {
-  <app-page-state kind="error" title="Categories unavailable" [message]="loadError()!.userMessage" actionLabel="Try again" (action)="load()" />
-} @else if (categories().length === 0) {
-  <app-page-state kind="empty" [title]="filter() === 'archived' ? 'No archived categories' : 'No active categories yet'"
-    [message]="filter() === 'archived' ? 'Categories you archive will remain available here for restoration.' : 'Add a category above to organize future financial activity.'" />
+  <app-page-state
+    kind="error"
+    title="Categories unavailable"
+    [message]="loadError()!.userMessage"
+    actionLabel="Try again"
+    (action)="load()"
+  />
+} @else if (visibleCategories().length === 0) {
+  <app-page-state
+    kind="empty"
+    [title]="filter() === 'archived' ? 'No archived categories' : 'No active categories yet'"
+    [message]="
+      filter() === 'archived'
+        ? 'Categories you archive will remain available here for restoration.'
+        : 'Add a category above to organize future financial activity.'
+    "
+  />
 } @else {
-  <section class="category-grid" aria-live="polite" aria-label="Transaction categories">
-    @for (category of categories(); track category.id) {
-      <article class="category-card" [class.archived]="category.status === 'archived'">
-        @if (editingId() === category.id) {
-          <form class="edit-form" [formGroup]="editForm" (ngSubmit)="saveEdit(category)" novalidate>
-            <div class="field"><label [for]="'edit-category-name-' + category.id">Category name</label><input [id]="'edit-category-name-' + category.id" type="text" formControlName="name" maxlength="100" (input)="editError.set(null)"
-              [attr.aria-invalid]="editForm.controls.name.invalid && editForm.controls.name.touched || editError() ? true : null" />
-              @if (editForm.controls.name.touched && editForm.controls.name.hasError('required')) { <p class="field-error">Enter a category name.</p> }
-              @else if (editForm.controls.name.touched && editForm.controls.name.hasError('maxlength')) { <p class="field-error">Use 100 characters or fewer.</p> }
-              @else if (editError()) { <p class="field-error" role="alert">{{ nameError(editError()) }}</p> }
+  <section class="category-tree" aria-live="polite" aria-label="Transaction category hierarchy">
+    @for (category of visibleCategories(); track category.id) {
+      <div
+        class="category-row"
+        [style.--category-depth]="hierarchyDepth(category)"
+      >
+        <article
+          class="category-card"
+          [class.archived]="category.status === 'archived'"
+          [attr.aria-label]="parentPath(category)"
+        >
+          @if (editingId() === category.id) {
+            <form
+              class="edit-form"
+              [formGroup]="editForm"
+              (ngSubmit)="saveEdit(category)"
+              novalidate
+            >
+              <div class="field">
+                <label [for]="'edit-category-name-' + category.id">Category name</label
+                ><input
+                  [id]="'edit-category-name-' + category.id"
+                  type="text"
+                  formControlName="name"
+                  maxlength="100"
+                  (input)="editError.set(null)"
+                  [attr.aria-invalid]="
+                    (editForm.controls.name.invalid && editForm.controls.name.touched) ||
+                    editError()
+                      ? true
+                      : null
+                  "
+                />
+                @if (
+                  editForm.controls.name.touched && editForm.controls.name.hasError('required')
+                ) {
+                  <p class="field-error">Enter a category name.</p>
+                } @else if (
+                  editForm.controls.name.touched && editForm.controls.name.hasError('maxlength')
+                ) {
+                  <p class="field-error">Use 100 characters or fewer.</p>
+                } @else if (nameError(editError())) {
+                  <p class="field-error" role="alert">{{ nameError(editError()) }}</p>
+                }
+              </div>
+              <div class="field">
+                <label [for]="'edit-category-applicability-' + category.id">Used for</label
+                ><select
+                  [id]="'edit-category-applicability-' + category.id"
+                  formControlName="applicability"
+                >
+                  @for (option of applicabilityOptions; track option.value) {
+                    <option [value]="option.value">{{ option.label }}</option>
+                  }
+                </select>
+              </div>
+              <div class="field">
+                <label [for]="'edit-category-parent-' + category.id">Parent category</label
+                ><select
+                  [id]="'edit-category-parent-' + category.id"
+                  formControlName="parentId"
+                  (change)="editError.set(null)"
+                  [attr.aria-invalid]="parentError(editError()) ? true : null"
+                >
+                  <option value="">No parent (root)</option>
+                  @if (parentCategory(category)?.status === 'archived') {
+                    <option [value]="category.parentId" disabled>
+                      {{ parentCategory(category)!.name }} (archived current parent)
+                    </option>
+                  }
+                  @for (candidate of parentOptions(category); track candidate.id) {
+                    <option [value]="candidate.id">{{ parentPath(candidate) }}</option>
+                  }
+                </select>
+                <p class="field-help">This category and its descendants cannot be selected.</p>
+                @if (parentError(editError())) {
+                  <p class="field-error" role="alert">{{ parentError(editError()) }}</p>
+                }
+              </div>
+              @if (formError(editError())) {
+                <p class="field-error" role="alert">{{ formError(editError()) }}</p>
+              }
+              <footer>
+                <button
+                  type="button"
+                  class="text-button"
+                  [disabled]="editSubmission.busy()"
+                  (click)="cancelEdit()"
+                >
+                  Cancel</button
+                ><button type="submit" class="primary-button" [disabled]="mutationBusy()">
+                  {{ editSubmission.busy() ? 'Saving…' : 'Save' }}
+                </button>
+              </footer>
+            </form>
+          } @else {
+            <header>
+              <span class="category-icon" aria-hidden="true">{{
+                category.applicability === 'income'
+                  ? '↑'
+                  : category.applicability === 'expense'
+                    ? '↓'
+                    : '↕'
+              }}</span
+              ><span class="status">{{ category.status }}</span>
+            </header>
+            <div>
+              <p class="applicability">{{ applicabilityLabel(category.applicability) }}</p>
+              <h2>{{ category.name }}</h2>
+              <p class="relationship">{{ relationshipLabel(category) }}</p>
             </div>
-            <div class="field"><label [for]="'edit-category-applicability-' + category.id">Used for</label><select [id]="'edit-category-applicability-' + category.id" formControlName="applicability">
-              @for (option of applicabilityOptions; track option.value) { <option [value]="option.value">{{ option.label }}</option> }
-            </select></div>
-            <footer><button type="button" class="text-button" (click)="cancelEdit()">Cancel</button><button type="submit" class="primary-button" [disabled]="editSubmission.busy()">{{ editSubmission.busy() ? 'Saving…' : 'Save' }}</button></footer>
-          </form>
-        } @else {
-          <header><span class="category-icon" aria-hidden="true">{{ category.applicability === 'income' ? '↑' : category.applicability === 'expense' ? '↓' : '↕' }}</span><span class="status">{{ category.status }}</span></header>
-          <div><p class="applicability">{{ applicabilityLabel(category.applicability) }}</p><h2>{{ category.name }}</h2></div>
-          <p class="category-note">{{ category.status === 'archived' ? 'Retained for existing transaction history.' : 'Available for new transaction activity.' }}</p>
-          @if (category.archivedAt) { <p class="archived-at">Archived {{ category.archivedAt | date:'mediumDate' }}</p> }
-          @if (lifecycleError()?.id === category.id) { <p class="field-error" role="alert">{{ lifecycleError()!.error.userMessage }}</p> }
-          <footer>
-            @if (category.status === 'active') { <button type="button" class="text-button" (click)="startEdit(category)">Edit</button><button type="button" class="secondary-button" [disabled]="changingId() === category.id" (click)="archive(category)">Archive</button> }
-            @else { <span></span><button type="button" class="secondary-button" [disabled]="changingId() === category.id" (click)="restore(category)">Restore</button> }
-          </footer>
-        }
-      </article>
+            <p class="category-note">
+              {{
+                category.status === 'archived'
+                  ? 'Retained for existing transaction history.'
+                  : 'Available for new transaction activity.'
+              }}
+            </p>
+            @if (category.archivedAt) {
+              <p class="archived-at">Archived {{ category.archivedAt | date: 'mediumDate' }}</p>
+            }
+            @if (lifecycleError()?.id === category.id) {
+              <p class="field-error" role="alert">
+                {{ lifecycleErrorMessage(lifecycleError()!.error) }}
+              </p>
+            }
+            <footer>
+              <button
+                type="button"
+                class="text-button"
+                [disabled]="mutationBusy()"
+                (click)="startEdit(category)"
+              >
+                Edit
+              </button>
+              @if (category.status === 'active') {
+                <button
+                  type="button"
+                  class="secondary-button"
+                  [disabled]="mutationBusy()"
+                  (click)="archive(category)"
+                >
+                  Archive
+                </button>
+              } @else {
+                <button
+                  type="button"
+                  class="secondary-button"
+                  [disabled]="mutationBusy()"
+                  (click)="restore(category)"
+                >
+                  Restore
+                </button>
+              }
+            </footer>
+          }
+        </article>
+      </div>
     }
   </section>
 }
