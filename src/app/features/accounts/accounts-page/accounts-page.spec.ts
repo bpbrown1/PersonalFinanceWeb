@@ -29,6 +29,13 @@ describe('AccountsPage', () => {
     expect(fixture.nativeElement.querySelector('a[href="/accounts/account-1"]')).not.toBeNull();
   });
 
+  it('makes each account card selectable through a descriptive details link', () => {
+    const fixture = TestBed.createComponent(AccountsPage); fixture.detectChanges();
+    const link = fixture.nativeElement.querySelector('.account-card .card-link');
+    expect(link.getAttribute('href')).toBe('/accounts/account-1');
+    expect(link.getAttribute('aria-label')).toBe('View and edit Everyday Checking');
+  });
+
   it('loads archived accounts when the filter changes', () => {
     const fixture = TestBed.createComponent(AccountsPage); fixture.detectChanges();
     fixture.nativeElement.querySelectorAll('.filters button')[1].click(); fixture.detectChanges();

@@ -25,6 +25,7 @@ describe('AccountDetail', () => {
     expect(api['get']).toHaveBeenCalledWith(account.id);
     expect(fixture.nativeElement.textContent).toContain('Everyday Checking');
     expect(fixture.componentInstance.hasPendingChanges()).toBe(false);
+    expect(fixture.nativeElement.querySelector('a[href="/accounts/account-1/history"]')).not.toBeNull();
   });
 
   it('patches only changed fields and resets dirty state after success', () => {

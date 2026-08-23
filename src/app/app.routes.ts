@@ -27,6 +27,11 @@ export const routes: Routes = [
             loadComponent: () => import('./features/accounts/create-account/create-account').then((m) => m.CreateAccount),
           },
           {
+            path: ':accountId/history',
+            title: 'Balance history · Personal Finance',
+            loadComponent: () => import('./features/accounts/account-history/account-history').then((m) => m.AccountHistory),
+          },
+          {
             path: ':accountId',
             title: 'Account details · Personal Finance',
             canDeactivate: [pendingChangesGuard],

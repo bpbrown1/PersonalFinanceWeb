@@ -7,6 +7,7 @@
     <a routerLink="/accounts" class="back-link">← Accounts</a>
     <div class="title-row"><div><p class="eyebrow">{{ current.type.replace('_', ' ') | titlecase }}</p><h1>{{ current.name }}</h1></div><span class="status">{{ current.status }}</span></div>
     <p>Current balance <strong>{{ current.currentBalance | currency:current.currency:'symbol':'1.2-2' }}</strong> · Updated {{ current.updatedAt | date:'medium' }}</p>
+    <a [routerLink]="['/accounts', current.id, 'history']" class="history-link">View balance history →</a>
   </header>
   <form [formGroup]="form" (ngSubmit)="save()" novalidate>
     <section class="form-card" aria-labelledby="account-details-heading">

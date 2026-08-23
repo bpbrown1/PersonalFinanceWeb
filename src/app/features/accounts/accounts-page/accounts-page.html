@@ -28,7 +28,7 @@
         <p class="balance">{{ account.currentBalance | currency:account.currency:'symbol':'1.2-2' }}</p>
         <p class="currency">{{ account.currency }} · Opened {{ account.openingDate | date:'mediumDate' }}</p>
         <footer>
-          <a [routerLink]="['/accounts', account.id]">View and edit</a>
+          <a class="card-link" [routerLink]="['/accounts', account.id]" [attr.aria-label]="'View and edit ' + account.name">View and edit</a>
           @if (account.status === 'active') { <button type="button" class="secondary" [disabled]="changingId() === account.id" (click)="archive(account)">Archive</button> }
           @else { <button type="button" class="secondary" [disabled]="changingId() === account.id" (click)="restore(account)">Restore</button> }
         </footer>

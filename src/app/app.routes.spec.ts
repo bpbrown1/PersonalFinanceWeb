@@ -24,6 +24,7 @@ describe('application routes', () => {
     const landing = accounts?.children?.find((route) => route.path === '');
     const create = accounts?.children?.find((route) => route.path === 'new');
     const detail = accounts?.children?.find((route) => route.path === ':accountId');
+    const history = accounts?.children?.find((route) => route.path === ':accountId/history');
 
     expect(accounts?.title).toBe('Accounts · Personal Finance');
     expect(landing?.loadComponent).toBeTypeOf('function');
@@ -33,6 +34,8 @@ describe('application routes', () => {
     expect(detail?.title).toBe('Account details · Personal Finance');
     expect(detail?.loadComponent).toBeTypeOf('function');
     expect(detail?.canDeactivate).toHaveLength(1);
+    expect(history?.title).toBe('Balance history · Personal Finance');
+    expect(history?.loadComponent).toBeTypeOf('function');
   });
 
   it('provides a lazy wildcard route with a not-found title', () => {

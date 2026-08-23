@@ -1,0 +1,56 @@
+@if (loading()) {
+  <app-page-state kind="loading" title="Loading balance history" message="Retrieving recorded account balances." />
+} @else if (loadError()) {
+  <app-page-state kind="error" title="Balance history unavailable" [message]="loadError()!.userMessage" actionLabel="Try again" (action)="load()" />
+} @else if (account(); as current) {
+  <header class="page-header">
+    <a [routerLink]="['/accounts', current.id]" class="back-link">← {{ current.name }}</a>
+    <p class="eyebrow">Recorded account balances</p><h1>Balance history</h1>
+    <p>Review actual snapshots for {{ current.name }}. Connected points do not represent estimated intermediate balances.</p>
+  </header>
+
+  <section class="range-panel" aria-labelledby="range-heading">
+    <div><h2 id="range-heading">Date range</h2><p>Choose the history window to inspect.</p></div>
+    <div class="presets" role="group" aria-label="History range">
+      <button type="button" [class.selected]="range() === '30d'" (click)="selectRange('30d')">30 days</button>
+      <button type="button" [class.selected]="range() === '90d'" (click)="selectRange('90d')">90 days</button>
+      <button type="button" [class.selected]="range() === '1y'" (click)="selectRange('1y')">1 year</button>
+    </div>
+    <div class="custom-range">
+      <label>From <input type="date" [value]="customFrom()" (input)="customFrom.set($any($event.target).value)" /></label>
+      <label>To <input type="date" [value]="customTo()" (input)="customTo.set($any($event.target).value)" /></label>
+      <button type="button" (click)="applyCustomRange()" [disabled]="!customRangeValid()">Apply</button>
+    </div>
+  </section>
+
+  @if (filteredSnapshots().length === 0) {
+    <app-page-state kind="empty" title="No recorded balances in this range" message="Choose a wider date range to look for earlier snapshots." />
+  } @else {
+    <section class="summary" aria-label="History summary">
+      <article><span>Latest recorded</span><strong>{{ filteredSnapshots().at(-1)!.balance | currency:current.currency:'symbol':'1.2-2' }}</strong></article>
+      <article><span>Recorded points</span><strong>{{ filteredSnapshots().length }}</strong></article>
+      <article><span>Change in range</span><strong>{{ change() === null ? '—' : (change()! | currency:current.currency:'symbol':'1.2-2') }}</strong></article>
+    </section>
+    <figure aria-labelledby="trend-title trend-description">
+      <figcaption><h2 id="trend-title">Recorded balance trend</h2><p id="trend-description">A visual connection of {{ filteredSnapshots().length }} recorded balance snapshots. Exact values follow in the table.</p></figcaption>
+      <svg viewBox="0 0 800 260" role="img" aria-hidden="true" preserveAspectRatio="none">
+        <line x1="28" y1="232" x2="772" y2="232" class="axis" />
+        <polyline [attr.points]="polyline()" />
+        @for (point of chartPoints(); track point.snapshot.id) { <circle [attr.cx]="point.x" [attr.cy]="point.y" r="7"><title>{{ point.snapshot.balance | currency:current.currency }} on {{ point.snapshot.effectiveAt | date:'medium' }}</title></circle> }
+      </svg>
+    </figure>
+    <section class="history-table" aria-labelledby="history-table-heading">
+      <h2 id="history-table-heading">Recorded snapshots</h2>
+      <div class="table-scroll"><table><thead><tr><th scope="col">Effective date</th><th scope="col">Balance</th><th scope="col">Source</th></tr></thead>
+        <tbody>@for (snapshot of filteredSnapshots(); track snapshot.id) { <tr><td>{{ snapshot.effectiveAt | date:'medium' }}</td><td>{{ snapshot.balance | currency:current.currency:'symbol':'1.2-2' }}</td><td><span class="source">{{ snapshot.source | titlecase }}</span></td></tr> }</tbody>
+      </table></div>
+    </section>
+  }
+
+  <section class="as-of" aria-labelledby="as-of-heading">
+    <div><h2 id="as-of-heading">Balance as of a date</h2><p>Find the most recent snapshot recorded on or before the end of that day.</p></div>
+    <div class="as-of-control"><label for="as-of-date">Date</label><input id="as-of-date" type="date" [ngModel]="asOfDate()" (ngModelChange)="asOfDate.set($event)" /><button type="button" [disabled]="!asOfDate() || asOfLoading()" (click)="findAsOf()">{{ asOfLoading() ? 'Looking up…' : 'Find balance' }}</button></div>
+    @if (asOfResult(); as result) { <p class="as-of-result" role="status"><strong>{{ result.balance | currency:current.currency:'symbol':'1.2-2' }}</strong> from the {{ result.source }} snapshot effective {{ result.effectiveAt | date:'medium' }}.</p> }
+    @if (asOfError()) { <p class="as-of-error" role="alert">{{ asOfError()!.userMessage }}</p> }
+  </section>
+}
