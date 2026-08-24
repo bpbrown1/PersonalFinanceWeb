@@ -1,0 +1,563 @@
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Keep every balance explainable</p>
+    <h1>Transactions</h1>
+    <p>Record income and spending, then correct or recover entries without losing history.</p>
+  </div>
+</header>
+
+<section class="create-panel transaction-form" aria-labelledby="record-heading">
+  <div>
+    <h2 id="record-heading">Record a transaction</h2>
+    <p>Amounts are positive; the type determines the balance direction.</p>
+  </div>
+  <form [formGroup]="createForm" (ngSubmit)="create()" novalidate>
+    <div class="field">
+      <label for="new-type">Type <span>(required)</span></label>
+      <select id="new-type" formControlName="type" (change)="onTypeChanged('create')">
+        @for (option of typeOptions; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </div>
+    <div class="field">
+      <label for="new-account">Account <span>(required)</span></label>
+      <select
+        id="new-account"
+        formControlName="accountId"
+        [attr.aria-invalid]="
+          (createForm.controls.accountId.touched && createForm.controls.accountId.invalid) ||
+          fieldError(createError(), 'accountId')
+            ? true
+            : null
+        "
+        [attr.aria-describedby]="
+          (createForm.controls.accountId.touched && createForm.controls.accountId.invalid) ||
+          fieldError(createError(), 'accountId')
+            ? 'new-account-error'
+            : null
+        "
+      >
+        <option value="">Select an account</option>
+        @for (account of activeAccounts(); track account.id) {
+          <option [value]="account.id">{{ account.name }} · {{ account.currency }}</option>
+        }
+      </select>
+      @if (
+        createForm.controls.accountId.touched && createForm.controls.accountId.hasError('required')
+      ) {
+        <p id="new-account-error" class="field-error">Select an account.</p>
+      } @else if (fieldError(createError(), 'accountId')) {
+        <p id="new-account-error" class="field-error" role="alert">
+          {{ fieldError(createError(), 'accountId') }}
+        </p>
+      }
+    </div>
+    <div class="field">
+      <label for="new-amount">Amount <span>(required)</span></label>
+      <input
+        id="new-amount"
+        type="number"
+        min="0.01"
+        step="0.01"
+        inputmode="decimal"
+        formControlName="amount"
+        [attr.aria-invalid]="
+          (createForm.controls.amount.touched && createForm.controls.amount.invalid) ||
+          fieldError(createError(), 'amount')
+            ? true
+            : null
+        "
+        [attr.aria-describedby]="
+          (createForm.controls.amount.touched && createForm.controls.amount.invalid) ||
+          fieldError(createError(), 'amount')
+            ? 'new-amount-error'
+            : null
+        "
+      />
+      @if (createForm.controls.amount.touched && createForm.controls.amount.invalid) {
+        <p id="new-amount-error" class="field-error">
+          Enter a positive amount with up to two decimals.
+        </p>
+      } @else if (fieldError(createError(), 'amount')) {
+        <p id="new-amount-error" class="field-error" role="alert">
+          {{ fieldError(createError(), 'amount') }}
+        </p>
+      }
+    </div>
+    <div class="field">
+      <label for="new-date">Date <span>(required)</span></label>
+      <input
+        id="new-date"
+        type="date"
+        formControlName="transactionDate"
+        [max]="today"
+        [min]="minDate(createForm.controls.accountId.value)"
+        [attr.aria-invalid]="
+          (createForm.controls.transactionDate.touched &&
+            createForm.controls.transactionDate.invalid) ||
+          fieldError(createError(), 'transactionDate')
+            ? true
+            : null
+        "
+        [attr.aria-describedby]="
+          fieldError(createError(), 'transactionDate') ? 'new-date-error' : null
+        "
+      />
+      @if (fieldError(createError(), 'transactionDate')) {
+        <p id="new-date-error" class="field-error" role="alert">
+          {{ fieldError(createError(), 'transactionDate') }}
+        </p>
+      }
+    </div>
+    <div class="field description">
+      <label for="new-description">Description <span>(required)</span></label>
+      <input
+        id="new-description"
+        maxlength="255"
+        formControlName="description"
+        [attr.aria-invalid]="
+          (createForm.controls.description.touched && createForm.controls.description.invalid) ||
+          fieldError(createError(), 'description')
+            ? true
+            : null
+        "
+        [attr.aria-describedby]="
+          (createForm.controls.description.touched && createForm.controls.description.invalid) ||
+          fieldError(createError(), 'description')
+            ? 'new-description-error'
+            : null
+        "
+      />
+      @if (
+        createForm.controls.description.touched &&
+        createForm.controls.description.hasError('required')
+      ) {
+        <p id="new-description-error" class="field-error">Enter a description.</p>
+      } @else if (fieldError(createError(), 'description')) {
+        <p id="new-description-error" class="field-error" role="alert">
+          {{ fieldError(createError(), 'description') }}
+        </p>
+      }
+    </div>
+    <div class="field">
+      <label for="new-category">Category <span>(optional)</span></label>
+      <select id="new-category" formControlName="categoryId">
+        <option value="">Uncategorized</option>
+        @for (category of categoryOptions(createForm.controls.type.value); track category.id) {
+          <option [value]="category.id">{{ category.name }}</option>
+        }
+      </select>
+      @if (fieldError(createError(), 'categoryId')) {
+        <p class="field-error" role="alert">{{ fieldError(createError(), 'categoryId') }}</p>
+      }
+    </div>
+    <div class="field">
+      <label for="new-merchant">Merchant / payee <span>(optional)</span></label
+      ><input id="new-merchant" maxlength="255" formControlName="merchantPayee" />
+    </div>
+    <div class="field">
+      <label for="new-reference">Reference <span>(optional)</span></label
+      ><input id="new-reference" maxlength="255" formControlName="externalReference" />
+    </div>
+    <div class="field notes">
+      <label for="new-notes">Notes <span>(optional)</span></label
+      ><textarea id="new-notes" maxlength="2000" rows="2" formControlName="notes"></textarea>
+    </div>
+    <button
+      class="primary-button"
+      type="submit"
+      [disabled]="mutationBusy() || activeAccounts().length === 0"
+    >
+      {{ createSubmission.busy() ? 'Recording…' : 'Record transaction' }}
+    </button>
+    @if (activeAccounts().length === 0 && !loading()) {
+      <p class="form-error field-error">
+        Add or restore an active account before recording a transaction.
+      </p>
+    }
+    @if (formError(createError())) {
+      <p class="form-error field-error" role="alert">{{ formError(createError()) }}</p>
+    }
+  </form>
+</section>
+
+<section class="summary-panel" aria-labelledby="period-heading">
+  <div>
+    <p class="eyebrow">Ledger filter</p>
+    <h2 id="period-heading">Transaction date range</h2>
+    <p>The selected period applies to the transaction list and active cash-flow totals.</p>
+  </div>
+  <div class="summary-controls">
+    <div class="field">
+      <label for="summary-period">Period</label>
+      <select
+        #summaryPeriodSelect
+        id="summary-period"
+        [value]="summaryPeriod()"
+        (change)="selectSummaryPeriod(summaryPeriodSelect.value)"
+      >
+        @for (option of summaryPeriodOptions; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </div>
+    @if (summaryPeriod() === 'custom') {
+      <div class="field">
+        <label for="summary-from">From</label>
+        <input
+          #summaryFrom
+          id="summary-from"
+          type="date"
+          [value]="customSummaryFrom()"
+          [max]="customSummaryTo()"
+          (change)="setCustomSummaryFrom(summaryFrom.value)"
+        />
+      </div>
+      <div class="field">
+        <label for="summary-to">To</label>
+        <input
+          #summaryTo
+          id="summary-to"
+          type="date"
+          [value]="customSummaryTo()"
+          [min]="customSummaryFrom()"
+          [max]="today"
+          (change)="setCustomSummaryTo(summaryTo.value)"
+        />
+      </div>
+    }
+  </div>
+  @if (!summaryRangeValid()) {
+    <p class="field-error" role="alert">The start date must be on or before the end date.</p>
+  }
+</section>
+
+@if (filter() === 'active') {
+  @if (summaryLoading()) {
+    <p class="summary-empty" role="status">
+      Calculating {{ summaryPeriodLabel().toLowerCase() }} totals…
+    </p>
+  } @else if (summaryError()) {
+    <div class="summary-empty" role="alert">
+      <p>{{ summaryError()!.userMessage }}</p>
+      <button type="button" class="text-button" (click)="loadSummary()">Retry summary</button>
+    </div>
+  } @else if (summaries().length > 0) {
+    <section
+      class="summaries"
+      [attr.aria-label]="'Active transaction summaries for ' + summaryPeriodLabel()"
+    >
+      @for (summary of summaries(); track summary.currency) {
+        <article>
+          <header>
+            <h2>{{ summary.currency }} activity</h2>
+            <span>{{ summaryPeriodLabel() }}</span>
+          </header>
+          <dl>
+            <div class="income">
+              <dt>Income</dt>
+              <dd>+{{ summary.income | currency: summary.currency }}</dd>
+            </div>
+            <div class="expense">
+              <dt>Spending</dt>
+              <dd>−{{ summary.spending | currency: summary.currency }}</dd>
+            </div>
+            <div>
+              <dt>Net impact</dt>
+              <dd [class.negative]="summary.netImpact < 0">
+                {{ summary.netImpact | currency: summary.currency }}
+              </dd>
+            </div>
+          </dl>
+        </article>
+      }
+    </section>
+  } @else if (!loading() && !loadError() && summaryRangeValid()) {
+    <p class="summary-empty">
+      No active income or spending was recorded for {{ summaryPeriodLabel().toLowerCase() }}.
+    </p>
+  }
+}
+
+<nav class="filters" aria-label="Transaction status">
+  <button
+    type="button"
+    [class.selected]="filter() === 'active'"
+    [attr.aria-pressed]="filter() === 'active'"
+    (click)="selectFilter('active')"
+  >
+    Active
+  </button>
+  <button
+    type="button"
+    [class.selected]="filter() === 'deleted'"
+    [attr.aria-pressed]="filter() === 'deleted'"
+    (click)="selectFilter('deleted')"
+  >
+    Deleted
+  </button>
+</nav>
+
+@if (loading()) {
+  <app-page-state
+    kind="loading"
+    title="Loading transactions"
+    message="Retrieving your ledger, accounts, and categories."
+  />
+} @else if (loadError()) {
+  <app-page-state
+    kind="error"
+    title="Transactions unavailable"
+    [message]="loadError()!.userMessage"
+    actionLabel="Try again"
+    (action)="load()"
+  />
+} @else if (visibleTransactions().length === 0) {
+  <app-page-state
+    kind="empty"
+    [title]="
+      filter() === 'deleted'
+        ? 'No deleted transactions in this period'
+        : 'No active transactions in this period'
+    "
+    [message]="
+      filter() === 'deleted'
+        ? 'Choose a different date range to find other deleted transactions.'
+        : 'Choose a different date range or record a new income or spending entry.'
+    "
+  />
+} @else {
+  <section class="ledger" aria-live="polite" aria-label="Transaction ledger">
+    @for (transaction of visibleTransactions(); track transaction.id) {
+      <article
+        class="transaction-card"
+        [class.income]="transaction.type === 'income'"
+        [class.deleted]="transaction.status === 'deleted'"
+      >
+        @if (editingId() === transaction.id) {
+          <form
+            class="edit-form"
+            [formGroup]="editForm"
+            (ngSubmit)="saveEdit(transaction)"
+            novalidate
+          >
+            <div class="field">
+              <label [for]="'edit-type-' + transaction.id">Type</label
+              ><select
+                [id]="'edit-type-' + transaction.id"
+                formControlName="type"
+                (change)="onTypeChanged('edit')"
+              >
+                @for (option of typeOptions; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </div>
+            <div class="field">
+              <label [for]="'edit-account-' + transaction.id">Account</label>
+              <select [id]="'edit-account-' + transaction.id" formControlName="accountId">
+                <option value="">Select an account</option>
+                @for (account of accountOptions(transaction.accountId); track account.id) {
+                  <option [value]="account.id">
+                    {{ account.name }} · {{ account.currency
+                    }}{{ account.status === 'archived' ? ' (archived current account)' : '' }}
+                  </option>
+                }
+              </select>
+              @if (fieldError(editError(), 'accountId')) {
+                <p class="field-error" role="alert">{{ fieldError(editError(), 'accountId') }}</p>
+              }
+            </div>
+            <div class="field">
+              <label [for]="'edit-amount-' + transaction.id">Amount</label
+              ><input
+                [id]="'edit-amount-' + transaction.id"
+                type="number"
+                min="0.01"
+                step="0.01"
+                formControlName="amount"
+              />
+              @if (editForm.controls.amount.touched && editForm.controls.amount.invalid) {
+                <p class="field-error">Enter a positive amount with up to two decimals.</p>
+              } @else if (fieldError(editError(), 'amount')) {
+                <p class="field-error" role="alert">{{ fieldError(editError(), 'amount') }}</p>
+              }
+            </div>
+            <div class="field">
+              <label [for]="'edit-date-' + transaction.id">Date</label
+              ><input
+                [id]="'edit-date-' + transaction.id"
+                type="date"
+                formControlName="transactionDate"
+                [max]="today"
+                [min]="minDate(editForm.controls.accountId.value)"
+              />
+              @if (fieldError(editError(), 'transactionDate')) {
+                <p class="field-error" role="alert">
+                  {{ fieldError(editError(), 'transactionDate') }}
+                </p>
+              }
+            </div>
+            <div class="field description">
+              <label [for]="'edit-description-' + transaction.id">Description</label
+              ><input
+                [id]="'edit-description-' + transaction.id"
+                maxlength="255"
+                formControlName="description"
+              />
+              @if (fieldError(editError(), 'description')) {
+                <p class="field-error" role="alert">{{ fieldError(editError(), 'description') }}</p>
+              }
+            </div>
+            <div class="field">
+              <label [for]="'edit-category-' + transaction.id"
+                >Category <span>(optional)</span></label
+              >
+              <select [id]="'edit-category-' + transaction.id" formControlName="categoryId">
+                <option value="">Uncategorized</option>
+                @for (
+                  category of categoryOptions(
+                    editForm.controls.type.value,
+                    transaction.categoryId ?? ''
+                  );
+                  track category.id
+                ) {
+                  <option [value]="category.id">
+                    {{ category.name
+                    }}{{ category.status === 'archived' ? ' (archived current category)' : '' }}
+                  </option>
+                }
+              </select>
+              @if (fieldError(editError(), 'categoryId')) {
+                <p class="field-error" role="alert">{{ fieldError(editError(), 'categoryId') }}</p>
+              }
+            </div>
+            <div class="field">
+              <label [for]="'edit-merchant-' + transaction.id"
+                >Merchant / payee <span>(optional)</span></label
+              ><input
+                [id]="'edit-merchant-' + transaction.id"
+                maxlength="255"
+                formControlName="merchantPayee"
+              />
+            </div>
+            <div class="field">
+              <label [for]="'edit-reference-' + transaction.id"
+                >Reference <span>(optional)</span></label
+              ><input
+                [id]="'edit-reference-' + transaction.id"
+                maxlength="255"
+                formControlName="externalReference"
+              />
+            </div>
+            <div class="field notes">
+              <label [for]="'edit-notes-' + transaction.id">Notes <span>(optional)</span></label
+              ><textarea
+                [id]="'edit-notes-' + transaction.id"
+                maxlength="2000"
+                rows="2"
+                formControlName="notes"
+              ></textarea>
+            </div>
+            @if (formError(editError())) {
+              <p class="form-error field-error" role="alert">{{ formError(editError()) }}</p>
+            }
+            <footer>
+              <button
+                type="button"
+                class="text-button"
+                [disabled]="editSubmission.busy()"
+                (click)="cancelEdit()"
+              >
+                Cancel</button
+              ><button class="primary-button" type="submit" [disabled]="mutationBusy()">
+                {{ editSubmission.busy() ? 'Saving…' : 'Save changes' }}
+              </button>
+            </footer>
+          </form>
+        } @else {
+          <div class="transaction-main">
+            <span class="type-mark" aria-hidden="true">{{
+              transaction.type === 'income' ? '↑' : '↓'
+            }}</span>
+            <div>
+              <p class="transaction-type">
+                {{ transaction.type === 'income' ? 'Income' : 'Expense' }}
+              </p>
+              <h2>{{ transaction.description }}</h2>
+              <p>
+                {{
+                  transaction.merchantPayee ||
+                    (category(transaction.categoryId)?.name ?? 'Uncategorized')
+                }}
+                · {{ accountLabel(transaction.accountId) }}
+              </p>
+            </div>
+            <strong [class.negative]="transaction.balanceImpact < 0">{{
+              transaction.balanceImpact | currency: currency(transaction)
+            }}</strong>
+          </div>
+          <dl class="transaction-details">
+            <div>
+              <dt>Date</dt>
+              <dd>{{ transaction.transactionDate | date: 'mediumDate' }}</dd>
+            </div>
+            <div>
+              <dt>Category</dt>
+              <dd>{{ category(transaction.categoryId)?.name ?? 'Uncategorized' }}</dd>
+            </div>
+            @if (transaction.externalReference) {
+              <div>
+                <dt>Reference</dt>
+                <dd>{{ transaction.externalReference }}</dd>
+              </div>
+            }
+            @if (transaction.notes) {
+              <div>
+                <dt>Notes</dt>
+                <dd>{{ transaction.notes }}</dd>
+              </div>
+            }
+          </dl>
+          @if (transaction.deletedAt) {
+            <p class="deleted-note">
+              Deleted {{ transaction.deletedAt | date: 'medium' }} · Balance impact reversed
+            </p>
+          }
+          @if (lifecycleError()?.id === transaction.id) {
+            <p class="field-error" role="alert">{{ lifecycleError()!.error.userMessage }}</p>
+          }
+          <footer>
+            @if (transaction.status === 'active') {
+              <button
+                type="button"
+                class="text-button"
+                [disabled]="mutationBusy()"
+                (click)="startEdit(transaction)"
+              >
+                Edit</button
+              ><button
+                type="button"
+                class="secondary-button danger"
+                [disabled]="mutationBusy()"
+                (click)="deleteTransaction(transaction)"
+              >
+                Delete
+              </button>
+            } @else {
+              <button
+                type="button"
+                class="secondary-button"
+                [disabled]="mutationBusy()"
+                (click)="restore(transaction)"
+              >
+                Restore transaction
+              </button>
+            }
+          </footer>
+        }
+      </article>
+    }
+  </section>
+}
