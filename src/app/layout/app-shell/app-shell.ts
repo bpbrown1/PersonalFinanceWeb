@@ -3,7 +3,11 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { ThemeService } from '../../core/theme.service';
 import { NotificationCenter } from '../../shared/notification-center/notification-center';
 
-interface NavItem { label: string; path: string; icon: string; }
+interface NavItem {
+  label: string;
+  path: string;
+  icon: string;
+}
 
 @Component({
   selector: 'app-shell',
@@ -18,6 +22,7 @@ export class AppShell {
     { label: 'Overview', path: '/overview', icon: '⌂' },
     { label: 'Accounts', path: '/accounts', icon: '▤' },
     { label: 'Transactions', path: '/transactions', icon: '↔' },
+    { label: 'Budgets', path: '/budgets', icon: '◎' },
     { label: 'Categories', path: '/categories', icon: '◫' },
     { label: 'Imports', path: '/imports', icon: '⇧' },
     { label: 'Reports', path: '/reports', icon: '▥' },
