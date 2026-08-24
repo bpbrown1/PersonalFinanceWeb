@@ -67,6 +67,13 @@ export const routes: Routes = [
             (m) => m.TransactionsPage,
           ),
       },
+      {
+        path: 'budgets',
+        title: 'Budgets · Personal Finance',
+        canDeactivate: [pendingChangesGuard],
+        loadComponent: () =>
+          import('./features/budgets/budgets-page/budgets-page').then((m) => m.BudgetsPage),
+      },
       ...['imports', 'reports', 'settings'].map((path): Routes[number] => ({
         path,
         title: `${path[0].toUpperCase()}${path.slice(1)} · Personal Finance`,
