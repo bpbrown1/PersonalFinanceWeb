@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AccountsApiService } from '../../../api/accounts/accounts-api.service';
 import { FinancialAccount } from '../../../api/accounts/account.models';
@@ -8,6 +9,7 @@ import { ApiErrorPresenter } from '../../../api/errors/api-error-presenter.servi
 import { AppHttpError } from '../../../api/errors/app-http-error';
 import {
   FinancialTransaction,
+  TransactionPage,
   TransactionSummary,
 } from '../../../api/transactions/transaction.models';
 import { TransactionsApiService } from '../../../api/transactions/transactions-api.service';
@@ -18,7 +20,7 @@ import { TransactionsPage } from './transactions-page';
 
 describe('TransactionsPage', () => {
   let transactionsApi: Record<
-    'list' | 'summarize' | 'create' | 'update' | 'delete' | 'restore',
+    'search' | 'get' | 'summarize' | 'create' | 'update' | 'delete' | 'restore',
     ReturnType<typeof vi.fn>
   >;
   let accountsApi: { list: ReturnType<typeof vi.fn> };
@@ -32,7 +34,8 @@ describe('TransactionsPage', () => {
 
   beforeEach(async () => {
     transactionsApi = {
-      list: vi.fn(() => of([transactionFixture()])),
+      search: vi.fn(() => of(pageFixture([transactionFixture()]))),
+      get: vi.fn(() => of(transactionFixture())),
       summarize: vi.fn(() => of([summaryFixture()])),
       create: vi.fn(() => of(transactionFixture())),
       update: vi.fn(() => of(transactionFixture({ description: 'Updated lunch' }))),
@@ -69,6 +72,7 @@ describe('TransactionsPage', () => {
         { provide: CategoriesApiService, useValue: categoriesApi },
         { provide: NotificationService, useValue: notifications },
         { provide: ApiErrorPresenter, useValue: presenter },
+        provideRouter([]),
       ],
     }).compileComponents();
   });
@@ -78,11 +82,27 @@ describe('TransactionsPage', () => {
   it('loads all ledger context and labels expense direction in text', () => {
     const fixture = TestBed.createComponent(TransactionsPage);
     fixture.detectChanges();
-    expect(transactionsApi.list).toHaveBeenCalledWith('all');
+    expect(transactionsApi.search).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'active',
+        from: firstDayOfCurrentMonth(),
+        to: localToday(),
+        page: 0,
+        size: 25,
+        sort: 'date',
+        direction: 'desc',
+      }),
+    );
     expect(transfersApi.list).toHaveBeenCalledWith('all');
     expect(accountsApi.list).toHaveBeenCalledWith('all');
     expect(categoriesApi.list).toHaveBeenCalledWith('all');
-    expect(transactionsApi.summarize).toHaveBeenCalledWith(firstDayOfCurrentMonth(), localToday());
+    expect(transactionsApi.summarize).toHaveBeenCalledWith({
+      from: firstDayOfCurrentMonth(),
+      to: localToday(),
+      accountId: undefined,
+      categoryId: undefined,
+      type: undefined,
+    });
     expect(fixture.nativeElement.textContent).toContain('Expense');
     expect(fixture.nativeElement.textContent).toContain('Lunch');
   });
@@ -133,7 +153,7 @@ describe('TransactionsPage', () => {
       notes: null,
       externalReference: null,
     });
-    expect(transactionsApi.list).toHaveBeenCalledTimes(2);
+    expect(transactionsApi.search).toHaveBeenCalledTimes(2);
     expect(accountsApi.list).toHaveBeenCalledTimes(2);
     expect(transactionsApi.summarize).toHaveBeenCalledTimes(2);
   });
@@ -208,8 +228,14 @@ describe('TransactionsPage', () => {
   });
 
   it('shows deleted entries separately and restores them', () => {
-    transactionsApi.list.mockReturnValue(
-      of([transactionFixture({ status: 'deleted', deletedAt: '2026-08-23T18:00:00Z' })]),
+    transactionsApi.search.mockImplementation((criteria) =>
+      of(
+        pageFixture(
+          criteria.status === 'deleted'
+            ? [transactionFixture({ status: 'deleted', deletedAt: '2026-08-23T18:00:00Z' })]
+            : [],
+        ),
+      ),
     );
     const fixture = TestBed.createComponent(TransactionsPage);
     fixture.detectChanges();
@@ -217,8 +243,8 @@ describe('TransactionsPage', () => {
     component.selectFilter('deleted');
     component.restore(transactionFixture({ status: 'deleted' }));
     fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Balance impact reversed');
     expect(transactionsApi.restore).toHaveBeenCalledWith('transaction-1');
+    expect(notifications.show).toHaveBeenCalledWith('Lunch was restored.', 'success');
   });
 
   it('renders server summaries by currency without combining unrelated values', () => {
@@ -239,9 +265,11 @@ describe('TransactionsPage', () => {
   });
 
   it('requests this-month, all-time, and custom summaries from the API', () => {
-    transactionsApi.summarize.mockImplementation((from?: string, to?: string) => {
-      if (!from && !to) return of([summaryFixture({ spending: 32.5, netImpact: -32.5 })]);
-      if (from === '2025-12-01' && to === '2025-12-31') {
+    transactionsApi.summarize.mockImplementation((criteria) => {
+      if (!criteria.from && !criteria.to) {
+        return of([summaryFixture({ spending: 32.5, netImpact: -32.5 })]);
+      }
+      if (criteria.from === '2025-12-01' && criteria.to === '2025-12-31') {
         return of([summaryFixture({ spending: 20, netImpact: -20 })]);
       }
       return of([summaryFixture()]);
@@ -255,13 +283,25 @@ describe('TransactionsPage', () => {
 
     component.selectSummaryPeriod('all_time');
     expect(component.summaries()[0].spending).toBe(32.5);
-    expect(transactionsApi.summarize).toHaveBeenLastCalledWith(undefined, undefined);
+    expect(transactionsApi.summarize).toHaveBeenLastCalledWith({
+      from: undefined,
+      to: undefined,
+      accountId: undefined,
+      categoryId: undefined,
+      type: undefined,
+    });
 
     component.selectSummaryPeriod('custom');
     component.setCustomSummaryFrom('2025-12-01');
     component.setCustomSummaryTo('2025-12-31');
     expect(component.summaries()[0].spending).toBe(20);
-    expect(transactionsApi.summarize).toHaveBeenLastCalledWith('2025-12-01', '2025-12-31');
+    expect(transactionsApi.summarize).toHaveBeenLastCalledWith({
+      from: '2025-12-01',
+      to: '2025-12-31',
+      accountId: undefined,
+      categoryId: undefined,
+      type: undefined,
+    });
   });
 
   it('applies the selected date range to the active transaction ledger', () => {
@@ -274,7 +314,9 @@ describe('TransactionsPage', () => {
       description: 'Older purchase',
       transactionDate: '2025-12-15',
     });
-    transactionsApi.list.mockReturnValue(of([current, older]));
+    transactionsApi.search.mockImplementation((criteria) =>
+      of(pageFixture(criteria.from ? [current] : [current, older])),
+    );
     const fixture = TestBed.createComponent(TransactionsPage);
     fixture.detectChanges();
 
@@ -288,21 +330,25 @@ describe('TransactionsPage', () => {
   });
 
   it('filters deleted transactions by date and hides active cash-flow totals', () => {
-    transactionsApi.list.mockReturnValue(
-      of([
-        transactionFixture({
-          status: 'deleted',
-          deletedAt: '2026-08-23T18:00:00Z',
-          transactionDate: localToday(),
-        }),
-        transactionFixture({
-          id: 'transaction-older',
-          description: 'Old deleted purchase',
-          status: 'deleted',
-          deletedAt: '2025-12-16T18:00:00Z',
-          transactionDate: '2025-12-15',
-        }),
-      ]),
+    transactionsApi.search.mockImplementation((criteria) =>
+      of(
+        pageFixture(
+          [
+            transactionFixture({
+              status: 'deleted',
+              deletedAt: '2026-08-23T18:00:00Z',
+              transactionDate: localToday(),
+            }),
+            transactionFixture({
+              id: 'transaction-older',
+              description: 'Old deleted purchase',
+              status: 'deleted',
+              deletedAt: '2025-12-16T18:00:00Z',
+              transactionDate: '2025-12-15',
+            }),
+          ].filter((transaction) => !criteria.from || transaction.transactionDate >= criteria.from),
+        ),
+      ),
     );
     const fixture = TestBed.createComponent(TransactionsPage);
     fixture.detectChanges();
@@ -430,29 +476,116 @@ describe('TransactionsPage', () => {
     expect(toolbar.querySelector('#summary-period')).not.toBeNull();
   });
 
+  it('combines advanced filters, resets paging, and reflects state in the URL', async () => {
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+
+    component.searchPage.set(2);
+    component.setSearchAccount('account-1');
+    component.setSearchCategory('category-1');
+    component.setSearchType('expense');
+    component.setSearchMinAmount('10');
+    component.setSearchMaxAmount('50');
+    await fixture.whenStable();
+
+    expect(transactionsApi.search).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        accountId: 'account-1',
+        categoryId: 'category-1',
+        type: 'expense',
+        minAmount: 10,
+        maxAmount: 50,
+        page: 0,
+      }),
+    );
+    expect(TestBed.inject(Router).url).toContain('accountId=account-1');
+    expect(TestBed.inject(Router).url).toContain('categoryId=category-1');
+  });
+
+  it('uses server pagination metadata and sorts date and amount columns', () => {
+    transactionsApi.search.mockReturnValue(
+      of(pageFixture([transactionFixture()], { totalElements: 60, totalPages: 3 })),
+    );
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+
+    component.changePage(1);
+    expect(transactionsApi.search).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }));
+
+    component.selectSort('amount');
+    expect(transactionsApi.search).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 0, sort: 'amount', direction: 'desc' }),
+    );
+    component.selectSort('amount');
+    expect(transactionsApi.search).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sort: 'amount', direction: 'asc' }),
+    );
+  });
+
+  it('opens owner-scoped transaction details from a result', () => {
+    transactionsApi.get.mockReturnValue(
+      of(transactionFixture({ notes: 'Client meeting', externalReference: 'receipt-42' })),
+    );
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+
+    component.openDetails(transactionFixture());
+    fixture.detectChanges();
+
+    expect(transactionsApi.get).toHaveBeenCalledWith('transaction-1');
+    expect(fixture.nativeElement.textContent).toContain('Transaction details');
+    expect(fixture.nativeElement.textContent).toContain('Client meeting');
+    expect(fixture.nativeElement.textContent).toContain('receipt-42');
+  });
+
   it('renders one aggregate transfer instead of its two ledger legs', () => {
     transfersApi.list.mockReturnValue(of([transferFixture()]));
-    transactionsApi.list.mockReturnValue(
-      of([
+    transactionsApi.search.mockReturnValue(
+      of(
+        pageFixture([
+          transactionFixture({
+            id: 'source-leg',
+            transferId: 'transfer-1',
+            type: 'transfer_out',
+            description: 'Monthly savings',
+          }),
+          transactionFixture({
+            id: 'destination-leg',
+            accountId: 'savings',
+            transferId: 'transfer-1',
+            type: 'transfer_in',
+            description: 'Monthly savings',
+          }),
+        ]),
+      ),
+    );
+    accountsApi.list.mockReturnValue(
+      of([accountFixture(), accountFixture({ id: 'savings', name: 'Savings' })]),
+    );
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+
+    transactionsApi.get.mockReturnValue(
+      of(
         transactionFixture({
           id: 'source-leg',
           transferId: 'transfer-1',
           type: 'transfer_out',
           description: 'Monthly savings',
         }),
-        transactionFixture({
-          id: 'destination-leg',
-          accountId: 'savings',
-          transferId: 'transfer-1',
-          type: 'transfer_in',
-          description: 'Monthly savings',
-        }),
-      ]),
+      ),
     );
-    accountsApi.list.mockReturnValue(
-      of([accountFixture(), accountFixture({ id: 'savings', name: 'Savings' })]),
+    (fixture.componentInstance as any).openDetails(
+      transactionFixture({
+        id: 'source-leg',
+        transferId: 'transfer-1',
+        type: 'transfer_out',
+        description: 'Monthly savings',
+      }),
     );
-    const fixture = TestBed.createComponent(TransactionsPage);
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Transfer');
@@ -524,6 +657,22 @@ describe('TransactionsPage', () => {
     expect(fixture.nativeElement.textContent).toContain('must not be in the future');
   });
 });
+
+function pageFixture(
+  items: FinancialTransaction[],
+  overrides: Partial<TransactionPage> = {},
+): TransactionPage {
+  return {
+    items,
+    page: 0,
+    size: 25,
+    totalElements: items.length,
+    totalPages: items.length ? 1 : 0,
+    sortBy: 'date',
+    sortDirection: 'desc',
+    ...overrides,
+  };
+}
 
 function transactionFixture(overrides: Partial<FinancialTransaction> = {}): FinancialTransaction {
   return {

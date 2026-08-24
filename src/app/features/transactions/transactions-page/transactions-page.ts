@@ -1,7 +1,17 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  HostListener,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { finalize, forkJoin } from 'rxjs';
+import { ActivatedRoute, Router } from '@angular/router';
+import { debounceTime, distinctUntilChanged, finalize, forkJoin, Subject } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AccountsApiService } from '../../../api/accounts/accounts-api.service';
 import { FinancialAccount } from '../../../api/accounts/account.models';
 import { CategoriesApiService } from '../../../api/categories/categories-api.service';
@@ -13,6 +23,10 @@ import {
   CashFlowTransactionType,
   FinancialTransaction,
   SaveTransactionRequest,
+  SortDirection,
+  TransactionPage,
+  TransactionSearchCriteria,
+  TransactionSortField,
   TransactionStatus,
   TransactionSummary,
   TransactionType,
@@ -41,12 +55,32 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
   private readonly errors = inject(ApiErrorPresenter);
   private readonly notifications = inject(NotificationService);
   private readonly formBuilder = inject(FormBuilder);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly searchTextChanges = new Subject<string>();
 
-  protected readonly transactions = signal<FinancialTransaction[]>([]);
+  protected readonly transactionPage = signal<TransactionPage>(emptyTransactionPage());
+  protected readonly transactions = computed(() => this.transactionPage().items);
   protected readonly transfers = signal<FinancialTransfer[]>([]);
   protected readonly accounts = signal<FinancialAccount[]>([]);
   protected readonly categories = signal<TransactionCategory[]>([]);
   protected readonly filter = signal<TransactionStatus>('active');
+  protected readonly searchAccountId = signal('');
+  protected readonly searchCategoryId = signal('');
+  protected readonly searchType = signal<TransactionType | ''>('');
+  protected readonly searchMinAmount = signal('');
+  protected readonly searchMaxAmount = signal('');
+  protected readonly searchTextInput = signal('');
+  protected readonly searchText = signal('');
+  protected readonly searchPage = signal(0);
+  protected readonly searchSize = signal(25);
+  protected readonly searchSort = signal<TransactionSortField>('date');
+  protected readonly searchDirection = signal<SortDirection>('desc');
+  protected readonly filtersExpanded = signal(false);
+  protected readonly selectedTransaction = signal<FinancialTransaction | null>(null);
+  protected readonly detailLoading = signal(false);
+  protected readonly detailError = signal<AppHttpError | null>(null);
   protected readonly loading = signal(true);
   protected readonly loadError = signal<AppHttpError | null>(null);
   protected readonly summaries = signal<TransactionSummary[]>([]);
@@ -98,24 +132,15 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
       this.transferEditSubmission.busy() ||
       this.changingId() !== null,
   );
+  protected readonly searchResults = computed(() => this.transactions());
   protected readonly visibleTransactions = computed(() => {
-    const range = this.summaryRange();
-    return this.transactions().filter(
-      (transaction) =>
-        transaction.transferId === null &&
-        transaction.status === this.filter() &&
-        (range === null ||
-          (transaction.transactionDate >= range.from && transaction.transactionDate <= range.to)),
-    );
+    const selected = this.selectedTransaction();
+    return selected && selected.transferId === null ? [selected] : [];
   });
   protected readonly visibleTransfers = computed(() => {
-    const range = this.summaryRange();
-    return this.transfers().filter(
-      (transfer) =>
-        transfer.status === this.filter() &&
-        (range === null ||
-          (transfer.transactionDate >= range.from && transfer.transactionDate <= range.to)),
-    );
+    const selected = this.selectedTransaction();
+    const transfer = selected ? this.transferFor(selected) : undefined;
+    return transfer ? [transfer] : [];
   });
   protected readonly activeAccounts = computed(() =>
     this.accounts().filter((account) => account.status === 'active'),
@@ -128,7 +153,40 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
   protected readonly summaryPeriodLabel = computed(
     () => this.summaryPeriodOptions.find((option) => option.value === this.summaryPeriod())!.label,
   );
+  protected readonly activeSearchFilterCount = computed(
+    () =>
+      [
+        this.searchAccountId(),
+        this.searchCategoryId(),
+        this.searchType(),
+        this.searchMinAmount(),
+        this.searchMaxAmount(),
+        this.searchText(),
+      ].filter(Boolean).length,
+  );
+  protected readonly pageStart = computed(() =>
+    this.transactionPage().totalElements === 0
+      ? 0
+      : this.transactionPage().page * this.transactionPage().size + 1,
+  );
+  protected readonly pageEnd = computed(() =>
+    Math.min(
+      (this.transactionPage().page + 1) * this.transactionPage().size,
+      this.transactionPage().totalElements,
+    ),
+  );
+  protected readonly canGoPrevious = computed(() => this.transactionPage().page > 0);
+  protected readonly canGoNext = computed(
+    () => this.transactionPage().page + 1 < this.transactionPage().totalPages,
+  );
   ngOnInit(): void {
+    this.restoreSearchStateFromUrl();
+    this.searchTextChanges
+      .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => {
+        this.searchText.set(value.trim());
+        this.refreshSearch();
+      });
     this.load();
   }
 
@@ -138,7 +196,7 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
     this.loadError.set(null);
     this.lifecycleError.set(null);
     forkJoin({
-      transactions: this.transactionsApi.list('all'),
+      transactions: this.transactionsApi.search(this.searchCriteria()),
       transfers: this.transfersApi.list('all'),
       accounts: this.accountsApi.list('all'),
       categories: this.categoriesApi.list('all'),
@@ -146,7 +204,7 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: ({ transactions, transfers, accounts, categories }) => {
-          this.transactions.set(transactions);
+          this.transactionPage.set(transactions);
           this.transfers.set(transfers);
           this.accounts.set(accounts);
           this.categories.set(categories);
@@ -328,6 +386,8 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
     this.filter.set(filter);
     this.cancelEdit();
     this.cancelTransferEdit();
+    this.closeDetails();
+    this.refreshSearch();
   }
 
   protected selectSummaryPeriod(period: string): void {
@@ -335,6 +395,7 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
     if (!option) return;
     this.summaryPeriod.set(option.value);
     this.loadSummary();
+    this.refreshSearch();
   }
 
   protected setCustomSummaryFrom(value: string): void {
@@ -347,6 +408,114 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
     this.reloadValidSummaryRange();
   }
 
+  protected setSearchAccount(value: string): void {
+    this.searchAccountId.set(value);
+    this.loadSummary();
+    this.refreshSearch();
+  }
+
+  protected setSearchCategory(value: string): void {
+    this.searchCategoryId.set(value);
+    this.loadSummary();
+    this.refreshSearch();
+  }
+
+  protected setSearchType(value: string): void {
+    if (!['', 'income', 'expense', 'transfer_out', 'transfer_in'].includes(value)) return;
+    this.searchType.set(value as TransactionType | '');
+    this.loadSummary();
+    this.refreshSearch();
+  }
+
+  protected setSearchMinAmount(value: string): void {
+    this.searchMinAmount.set(value);
+    this.refreshSearch();
+  }
+
+  protected setSearchMaxAmount(value: string): void {
+    this.searchMaxAmount.set(value);
+    this.refreshSearch();
+  }
+
+  protected setSearchText(value: string): void {
+    this.searchTextInput.set(value);
+    this.searchTextChanges.next(value);
+  }
+
+  protected clearSearchFilters(): void {
+    this.searchAccountId.set('');
+    this.searchCategoryId.set('');
+    this.searchType.set('');
+    this.searchMinAmount.set('');
+    this.searchMaxAmount.set('');
+    this.searchTextInput.set('');
+    this.searchText.set('');
+    this.searchTextChanges.next('');
+    this.loadSummary();
+    this.refreshSearch();
+  }
+
+  protected selectSort(field: TransactionSortField): void {
+    if (this.searchSort() === field) {
+      this.searchDirection.update((direction) => (direction === 'desc' ? 'asc' : 'desc'));
+    } else {
+      this.searchSort.set(field);
+      this.searchDirection.set('desc');
+    }
+    this.refreshSearch();
+  }
+
+  protected setPageSize(value: string): void {
+    const size = Number(value);
+    if (![10, 25, 50, 100].includes(size)) return;
+    this.searchSize.set(size);
+    this.refreshSearch();
+  }
+
+  protected changePage(page: number): void {
+    if (page < 0 || page >= this.transactionPage().totalPages || page === this.searchPage()) return;
+    this.searchPage.set(page);
+    this.closeDetails();
+    this.loadTransactions();
+    this.syncUrl();
+  }
+
+  protected openDetails(transaction: FinancialTransaction): void {
+    this.detailLoading.set(true);
+    this.detailError.set(null);
+    this.cancelEdit();
+    this.cancelTransferEdit();
+    this.transactionsApi
+      .get(transaction.id)
+      .pipe(finalize(() => this.detailLoading.set(false)))
+      .subscribe({
+        next: (detail) => this.selectedTransaction.set(detail),
+        error: (error) => this.detailError.set(this.errors.present(error)),
+      });
+  }
+
+  protected closeDetails(): void {
+    this.selectedTransaction.set(null);
+    this.detailError.set(null);
+    this.cancelEdit();
+    this.cancelTransferEdit();
+  }
+
+  protected transferFor(transaction: FinancialTransaction): FinancialTransfer | undefined {
+    return transaction.transferId
+      ? this.transfers().find((transfer) => transfer.id === transaction.transferId)
+      : undefined;
+  }
+
+  protected transactionTypeLabel(type: TransactionType): string {
+    return {
+      income: 'Income',
+      expense: 'Expense',
+      transfer_out: 'Transfer out',
+      transfer_in: 'Transfer in',
+    }[type];
+  }
+
   protected loadSummary(): void {
     if (!this.summaryRangeValid()) {
       this.summaries.set([]);
@@ -357,7 +526,13 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
     this.summaryLoading.set(true);
     this.summaryError.set(null);
     this.transactionsApi
-      .summarize(range?.from, range?.to)
+      .summarize({
+        from: range?.from,
+        to: range?.to,
+        accountId: this.searchAccountId() || undefined,
+        categoryId: this.searchCategoryId() || undefined,
+        type: this.searchType() || undefined,
+      })
       .pipe(finalize(() => this.summaryLoading.set(false)))
       .subscribe({
         next: (summaries) => this.summaries.set(summaries),
@@ -673,10 +848,127 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
   }
 
   private reloadValidSummaryRange(): void {
-    if (this.summaryRangeValid()) this.loadSummary();
-    else {
+    if (this.summaryRangeValid()) {
+      this.loadSummary();
+      this.refreshSearch();
+    } else {
       this.summaries.set([]);
       this.summaryError.set(null);
     }
   }
+
+  private refreshSearch(resetPage = true): void {
+    if (!this.summaryRangeValid()) return;
+    if (resetPage) this.searchPage.set(0);
+    this.closeDetails();
+    this.loadTransactions();
+    this.syncUrl();
+  }
+
+  private loadTransactions(): void {
+    this.loading.set(true);
+    this.loadError.set(null);
+    this.transactionsApi
+      .search(this.searchCriteria())
+      .pipe(finalize(() => this.loading.set(false)))
+      .subscribe({
+        next: (page) => this.transactionPage.set(page),
+        error: (error) => this.loadError.set(this.errors.present(error)),
+      });
+  }
+
+  private searchCriteria(): TransactionSearchCriteria {
+    const range = this.summaryRange();
+    return {
+      status: this.filter(),
+      accountId: this.searchAccountId() || undefined,
+      from: range?.from,
+      to: range?.to,
+      categoryId: this.searchCategoryId() || undefined,
+      type: this.searchType() || undefined,
+      minAmount: this.optionalPositiveNumber(this.searchMinAmount()),
+      maxAmount: this.optionalPositiveNumber(this.searchMaxAmount()),
+      text: this.searchText() || undefined,
+      page: this.searchPage(),
+      size: this.searchSize(),
+      sort: this.searchSort(),
+      direction: this.searchDirection(),
+    };
+  }
+
+  private optionalPositiveNumber(value: string): number | undefined {
+    if (!value) return undefined;
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? number : undefined;
+  }
+
+  private restoreSearchStateFromUrl(): void {
+    const params = this.route.snapshot.queryParamMap;
+    const status = params.get('status');
+    if (status === 'active' || status === 'deleted') this.filter.set(status);
+    const period = params.get('period');
+    if (this.summaryPeriodOptions.some((option) => option.value === period)) {
+      this.summaryPeriod.set(period as SummaryPeriod);
+    }
+    if (this.summaryPeriod() === 'custom') {
+      this.customSummaryFrom.set(params.get('from') ?? this.customSummaryFrom());
+      this.customSummaryTo.set(params.get('to') ?? this.customSummaryTo());
+    }
+    this.searchAccountId.set(params.get('accountId') ?? '');
+    this.searchCategoryId.set(params.get('categoryId') ?? '');
+    const type = params.get('type');
+    if (type && ['income', 'expense', 'transfer_out', 'transfer_in'].includes(type)) {
+      this.searchType.set(type as TransactionType);
+    }
+    this.searchMinAmount.set(params.get('minAmount') ?? '');
+    this.searchMaxAmount.set(params.get('maxAmount') ?? '');
+    const text = params.get('text') ?? '';
+    this.searchTextInput.set(text);
+    this.searchText.set(text);
+    this.searchPage.set(Math.max(0, Number(params.get('page')) || 0));
+    const size = Number(params.get('size'));
+    if ([10, 25, 50, 100].includes(size)) this.searchSize.set(size);
+    const sort = params.get('sort');
+    if (sort === 'date' || sort === 'amount') this.searchSort.set(sort);
+    const direction = params.get('direction');
+    if (direction === 'asc' || direction === 'desc') this.searchDirection.set(direction);
+    this.filtersExpanded.set(this.activeSearchFilterCount() > 0);
+  }
+
+  private syncUrl(): void {
+    const params: Record<string, string | number | null> = {
+      status: this.filter() === 'active' ? null : this.filter(),
+      period: this.summaryPeriod() === 'this_month' ? null : this.summaryPeriod(),
+      from: this.summaryPeriod() === 'custom' ? this.customSummaryFrom() : null,
+      to: this.summaryPeriod() === 'custom' ? this.customSummaryTo() : null,
+      accountId: this.searchAccountId() || null,
+      categoryId: this.searchCategoryId() || null,
+      type: this.searchType() || null,
+      minAmount: this.searchMinAmount() || null,
+      maxAmount: this.searchMaxAmount() || null,
+      text: this.searchText() || null,
+      page: this.searchPage() || null,
+      size: this.searchSize() === 25 ? null : this.searchSize(),
+      sort: this.searchSort() === 'date' ? null : this.searchSort(),
+      direction: this.searchDirection() === 'desc' ? null : this.searchDirection(),
+    };
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: params,
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+}
+
+function emptyTransactionPage(): TransactionPage {
+  return {
+    items: [],
+    page: 0,
+    size: 25,
+    totalElements: 0,
+    totalPages: 0,
+    sortBy: 'date',
+    sortDirection: 'desc',
+  };
 }
