@@ -514,6 +514,121 @@
   </div>
 </section>
 
+<section class="search-workspace" aria-labelledby="search-heading">
+  <header class="search-header">
+    <div>
+      <p class="eyebrow">Transaction search</p>
+      <h2 id="search-heading">Find activity</h2>
+      <p>Search the complete ledger with filters that can be combined.</p>
+    </div>
+    <button
+      type="button"
+      class="secondary-button filter-toggle"
+      [attr.aria-expanded]="filtersExpanded()"
+      aria-controls="advanced-transaction-filters"
+      (click)="filtersExpanded.set(!filtersExpanded())"
+    >
+      Filters{{ activeSearchFilterCount() ? ' (' + activeSearchFilterCount() + ')' : '' }}
+    </button>
+  </header>
+
+  <div class="search-primary">
+    <div class="field search-text">
+      <label for="transaction-search">Search transactions</label>
+      <input
+        #transactionSearch
+        id="transaction-search"
+        type="search"
+        placeholder="Description, merchant, notes, or reference"
+        [value]="searchTextInput()"
+        (input)="setSearchText(transactionSearch.value)"
+      />
+    </div>
+    @if (activeSearchFilterCount()) {
+      <button type="button" class="text-button clear-filters" (click)="clearSearchFilters()">
+        Clear filters
+      </button>
+    }
+  </div>
+
+  @if (filtersExpanded()) {
+    <div id="advanced-transaction-filters" class="advanced-filters">
+      <div class="field">
+        <label for="search-account">Account</label>
+        <select
+          #searchAccount
+          id="search-account"
+          [value]="searchAccountId()"
+          (change)="setSearchAccount(searchAccount.value)"
+        >
+          <option value="" [selected]="!searchAccountId()">All accounts</option>
+          @for (account of accounts(); track account.id) {
+            <option [value]="account.id" [selected]="searchAccountId() === account.id">
+              {{ account.name }} · {{ account.currency
+              }}{{ account.status === 'archived' ? ' (archived)' : '' }}
+            </option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label for="search-category">Category</label>
+        <select
+          #searchCategory
+          id="search-category"
+          [value]="searchCategoryId()"
+          (change)="setSearchCategory(searchCategory.value)"
+        >
+          <option value="" [selected]="!searchCategoryId()">All categories</option>
+          @for (category of categories(); track category.id) {
+            <option [value]="category.id" [selected]="searchCategoryId() === category.id">
+              {{ category.name }}{{ category.status === 'archived' ? ' (archived)' : '' }}
+            </option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label for="search-type">Type</label>
+        <select
+          #searchTypeSelect
+          id="search-type"
+          [value]="searchType()"
+          (change)="setSearchType(searchTypeSelect.value)"
+        >
+          <option value="">All types</option>
+          <option value="income">Income</option>
+          <option value="expense">Expense</option>
+          <option value="transfer_out">Transfer out</option>
+          <option value="transfer_in">Transfer in</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="search-min-amount">Minimum amount</label>
+        <input
+          #searchMinAmountInput
+          id="search-min-amount"
+          type="number"
+          min="0"
+          step="0.01"
+          [value]="searchMinAmount()"
+          (change)="setSearchMinAmount(searchMinAmountInput.value)"
+        />
+      </div>
+      <div class="field">
+        <label for="search-max-amount">Maximum amount</label>
+        <input
+          #searchMaxAmountInput
+          id="search-max-amount"
+          type="number"
+          min="0"
+          step="0.01"
+          [value]="searchMaxAmount()"
+          (change)="setSearchMaxAmount(searchMaxAmountInput.value)"
+        />
+      </div>
+    </div>
+  }
+</section>
+
 @if (loading()) {
   <app-page-state
     kind="loading"
@@ -528,7 +643,7 @@
     actionLabel="Try again"
     (action)="load()"
   />
-} @else if (visibleTransactions().length === 0 && visibleTransfers().length === 0) {
+} @else if (searchResults().length === 0) {
   <app-page-state
     kind="empty"
     [title]="
@@ -543,7 +658,150 @@
     "
   />
 } @else {
-  <section class="ledger" aria-live="polite" aria-label="Transaction ledger">
+  <section class="results-panel" aria-labelledby="results-heading">
+    <header class="results-header">
+      <div>
+        <p class="eyebrow">Ledger results</p>
+        <h2 id="results-heading">
+          {{ transactionPage().totalElements }}
+          {{ transactionPage().totalElements === 1 ? 'transaction' : 'transactions' }}
+        </h2>
+      </div>
+      <label class="page-size" for="transaction-page-size">
+        Rows
+        <select
+          #pageSizeSelect
+          id="transaction-page-size"
+          [value]="searchSize()"
+          (change)="setPageSize(pageSizeSelect.value)"
+        >
+          <option value="10">10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </label>
+    </header>
+    <div class="transaction-table-wrap">
+      <table class="transaction-table">
+        <thead>
+          <tr>
+            <th scope="col">
+              <button type="button" class="sort-button" (click)="selectSort('date')">
+                Date
+                @if (searchSort() === 'date') {
+                  <span aria-hidden="true">{{ searchDirection() === 'desc' ? '↓' : '↑' }}</span>
+                  <span class="visually-hidden">
+                    sorted {{ searchDirection() === 'desc' ? 'descending' : 'ascending' }}
+                  </span>
+                }
+              </button>
+            </th>
+            <th scope="col">Description</th>
+            <th scope="col">Account</th>
+            <th scope="col">Category</th>
+            <th scope="col">Type</th>
+            <th scope="col" class="amount-column">
+              <button type="button" class="sort-button" (click)="selectSort('amount')">
+                Amount
+                @if (searchSort() === 'amount') {
+                  <span aria-hidden="true">{{ searchDirection() === 'desc' ? '↓' : '↑' }}</span>
+                  <span class="visually-hidden">
+                    sorted {{ searchDirection() === 'desc' ? 'descending' : 'ascending' }}
+                  </span>
+                }
+              </button>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (transaction of searchResults(); track transaction.id) {
+            <tr
+              [class.deleted]="transaction.status === 'deleted'"
+              [class.selected]="selectedTransaction()?.id === transaction.id"
+              (click)="openDetails(transaction)"
+            >
+              <td data-label="Date">{{ transaction.transactionDate | date: 'mediumDate' }}</td>
+              <td data-label="Description">
+                <button
+                  type="button"
+                  class="transaction-link"
+                  [attr.aria-label]="'View details for ' + transaction.description"
+                >
+                  <strong>{{ transaction.description }}</strong>
+                  @if (transaction.merchantPayee) {
+                    <span>{{ transaction.merchantPayee }}</span>
+                  }
+                </button>
+              </td>
+              <td data-label="Account">{{ accountLabel(transaction.accountId) }}</td>
+              <td data-label="Category">
+                {{ category(transaction.categoryId)?.name ?? 'Uncategorized' }}
+              </td>
+              <td data-label="Type">
+                <span class="type-pill" [class.income]="transaction.type === 'income'">
+                  {{ transactionTypeLabel(transaction.type) }}
+                </span>
+              </td>
+              <td data-label="Amount" class="amount-column">
+                <strong [class.negative]="transaction.balanceImpact < 0">
+                  {{ transaction.balanceImpact | currency: currency(transaction) }}
+                </strong>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <footer class="pagination" aria-label="Transaction pagination">
+      <p>Showing {{ pageStart() }}–{{ pageEnd() }} of {{ transactionPage().totalElements }}</p>
+      <div>
+        <button
+          type="button"
+          class="secondary-button"
+          [disabled]="!canGoPrevious()"
+          (click)="changePage(searchPage() - 1)"
+        >
+          Previous
+        </button>
+        <span>Page {{ transactionPage().page + 1 }} of {{ transactionPage().totalPages }}</span>
+        <button
+          type="button"
+          class="secondary-button"
+          [disabled]="!canGoNext()"
+          (click)="changePage(searchPage() + 1)"
+        >
+          Next
+        </button>
+      </div>
+    </footer>
+  </section>
+
+  @if (detailLoading()) {
+    <app-page-state
+      kind="loading"
+      title="Loading transaction details"
+      message="Retrieving the complete ledger entry."
+    />
+  } @else if (detailError()) {
+    <app-page-state
+      kind="error"
+      title="Transaction details unavailable"
+      [message]="detailError()!.userMessage"
+    />
+  }
+
+  @if (selectedTransaction()) {
+    <section class="detail-heading" aria-label="Selected transaction details">
+      <div>
+        <p class="eyebrow">Transaction details</p>
+        <h2>{{ selectedTransaction()!.description }}</h2>
+      </div>
+      <button type="button" class="text-button" (click)="closeDetails()">Close details</button>
+    </section>
+  }
+
+  <section class="ledger" aria-live="polite" aria-label="Selected transaction">
     @for (transfer of visibleTransfers(); track transfer.id) {
       <article class="transaction-card transfer" [class.deleted]="transfer.status === 'deleted'">
         @if (editingTransferId() === transfer.id) {

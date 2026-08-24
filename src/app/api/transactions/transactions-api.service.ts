@@ -5,7 +5,9 @@ import { API_BASE_URL } from '../api.providers';
 import {
   FinancialTransaction,
   SaveTransactionRequest,
-  TransactionStatusFilter,
+  TransactionPage,
+  TransactionSearchCriteria,
+  TransactionSummaryCriteria,
   TransactionSummary,
 } from './transaction.models';
 
@@ -14,15 +16,16 @@ export class TransactionsApiService {
   private readonly http = inject(HttpClient);
   private readonly transactionsUrl = inject(API_BASE_URL) + '/transactions';
 
-  list(status: TransactionStatusFilter = 'active'): Observable<FinancialTransaction[]> {
-    return this.http.get<FinancialTransaction[]>(this.transactionsUrl, { params: { status } });
+  search(criteria: TransactionSearchCriteria = {}): Observable<TransactionPage> {
+    return this.http.get<TransactionPage>(this.transactionsUrl, {
+      params: this.params(criteria),
+    });
   }
 
-  summarize(from?: string, to?: string): Observable<TransactionSummary[]> {
-    const params: Record<string, string> = {};
-    if (from) params['from'] = from;
-    if (to) params['to'] = to;
-    return this.http.get<TransactionSummary[]>(this.transactionsUrl + '/summary', { params });
+  summarize(criteria: TransactionSummaryCriteria = {}): Observable<TransactionSummary[]> {
+    return this.http.get<TransactionSummary[]>(this.transactionsUrl + '/summary', {
+      params: this.params(criteria),
+    });
   }
 
   get(id: string): Observable<FinancialTransaction> {
@@ -47,5 +50,13 @@ export class TransactionsApiService {
 
   private transactionUrl(id: string): string {
     return this.transactionsUrl + '/' + encodeURIComponent(id);
+  }
+
+  private params(criteria: object): Record<string, string> {
+    return Object.fromEntries(
+      Object.entries(criteria)
+        .filter(([, value]) => value !== undefined && value !== null && value !== '')
+        .map(([key, value]) => [key, String(value)]),
+    );
   }
 }
