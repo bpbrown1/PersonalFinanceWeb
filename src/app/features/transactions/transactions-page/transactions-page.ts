@@ -25,6 +25,7 @@ import { NotificationService } from '../../../core/notification.service';
 import { PageState } from '../../../shared/page-state/page-state';
 
 type SummaryPeriod = 'this_month' | 'last_month' | 'year_to_date' | 'custom' | 'all_time';
+type CreateMode = CashFlowTransactionType | 'transfer';
 
 @Component({
   selector: 'app-transactions-page',
@@ -64,6 +65,7 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
   protected readonly editSubmission = new SubmissionState();
   protected readonly transferEditSubmission = new SubmissionState();
   protected readonly today = this.localToday();
+  protected readonly createMode = signal<CreateMode>('expense');
   protected readonly summaryPeriod = signal<SummaryPeriod>('this_month');
   protected readonly customSummaryFrom = signal(this.firstDayOfMonth(new Date()));
   protected readonly customSummaryTo = signal(this.today);
@@ -192,6 +194,14 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
           this.errors.present(error);
         },
       });
+  }
+
+  protected selectCreateMode(mode: CreateMode): void {
+    this.createMode.set(mode);
+    if (mode !== 'transfer') {
+      this.createForm.controls.type.setValue(mode);
+      this.onTypeChanged('create');
+    }
   }
 
   protected startEdit(transaction: FinancialTransaction): void {

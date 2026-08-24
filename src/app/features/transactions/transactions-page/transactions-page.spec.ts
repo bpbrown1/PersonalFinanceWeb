@@ -338,6 +338,7 @@ describe('TransactionsPage', () => {
     const fixture = TestBed.createComponent(TransactionsPage);
     fixture.detectChanges();
     const component = fixture.componentInstance as any;
+    component.selectCreateMode('transfer');
     component.transferCreateForm.setValue({
       sourceAccountId: 'account-1',
       destinationAccountId: 'savings',
@@ -375,6 +376,7 @@ describe('TransactionsPage', () => {
     const fixture = TestBed.createComponent(TransactionsPage);
     fixture.detectChanges();
     const component = fixture.componentInstance as any;
+    component.selectCreateMode('transfer');
     component.transferCreateForm.setValue({
       sourceAccountId: 'account-1',
       destinationAccountId: 'euro-account',
@@ -396,6 +398,36 @@ describe('TransactionsPage', () => {
     expect(transfersApi.create).toHaveBeenCalledWith(
       expect.objectContaining({ sourceAmount: 100, destinationAmount: 92 }),
     );
+  });
+
+  it('uses one modern composer and keeps its activity mode explicit', () => {
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+
+    expect(fixture.nativeElement.textContent).toContain('Record an expense');
+    expect(fixture.nativeElement.textContent).not.toContain('Move money between accounts');
+
+    component.selectCreateMode('income');
+    fixture.detectChanges();
+    expect(component.createForm.controls.type.value).toBe('income');
+    expect(fixture.nativeElement.textContent).toContain('Record income');
+
+    component.selectCreateMode('transfer');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Move money between accounts');
+    expect(fixture.nativeElement.textContent).not.toContain('Record an expense');
+  });
+
+  it('uses a compact ledger toolbar for status and period controls', () => {
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    const toolbar = fixture.nativeElement.querySelector('.ledger-toolbar');
+
+    expect(fixture.nativeElement.querySelector('.summary-panel')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Ledger filter');
+    expect(toolbar.querySelector('nav[aria-label="Transaction status"]')).not.toBeNull();
+    expect(toolbar.querySelector('#summary-period')).not.toBeNull();
   });
 
   it('renders one aggregate transfer instead of its two ledger legs', () => {
