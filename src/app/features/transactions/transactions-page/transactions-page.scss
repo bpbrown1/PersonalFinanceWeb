@@ -4,8 +4,8 @@
 .transaction-form form,
 .edit-form {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.85rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
 }
 .transaction-form .description,
 .edit-form .description {
@@ -29,25 +29,24 @@ textarea {
   color: var(--color-text);
   background: var(--color-canvas);
 }
-.summary-panel {
+.summary-empty {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+.ledger-toolbar {
   display: flex;
   align-items: end;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 0.8rem;
-  padding: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 1rem;
-  background: var(--color-surface);
+  margin-bottom: 1rem;
 }
-.summary-panel h2 {
-  margin: 0.15rem 0 0.25rem;
-  font-size: 1.1rem;
+.ledger-toolbar .filters {
+  margin-bottom: 0;
 }
-.summary-panel > div:first-child > p:last-child,
-.summary-empty {
-  color: var(--color-muted);
-  font-size: 0.85rem;
+.period-filter {
+  display: grid;
+  justify-items: end;
+  gap: 0.35rem;
 }
 .summary-controls {
   display: flex;
@@ -202,10 +201,6 @@ dd {
   }
 }
 @media (max-width: 52rem) {
-  .summary-panel {
-    align-items: stretch;
-    flex-direction: column;
-  }
   .transaction-form form,
   .edit-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -216,6 +211,13 @@ dd {
   }
 }
 @media (max-width: 38rem) {
+  .ledger-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .period-filter {
+    justify-items: stretch;
+  }
   .summary-controls {
     align-items: stretch;
     flex-direction: column;

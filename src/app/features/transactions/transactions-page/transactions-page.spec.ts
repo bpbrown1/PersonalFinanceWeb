@@ -11,6 +11,8 @@ import {
   TransactionSummary,
 } from '../../../api/transactions/transaction.models';
 import { TransactionsApiService } from '../../../api/transactions/transactions-api.service';
+import { FinancialTransfer } from '../../../api/transfers/transfer.models';
+import { TransfersApiService } from '../../../api/transfers/transfers-api.service';
 import { NotificationService } from '../../../core/notification.service';
 import { TransactionsPage } from './transactions-page';
 
@@ -20,6 +22,10 @@ describe('TransactionsPage', () => {
     ReturnType<typeof vi.fn>
   >;
   let accountsApi: { list: ReturnType<typeof vi.fn> };
+  let transfersApi: Record<
+    'list' | 'get' | 'create' | 'update' | 'delete' | 'restore',
+    ReturnType<typeof vi.fn>
+  >;
   let categoriesApi: { list: ReturnType<typeof vi.fn> };
   let notifications: { show: ReturnType<typeof vi.fn> };
   let presenter: { present: ReturnType<typeof vi.fn> };
@@ -36,6 +42,14 @@ describe('TransactionsPage', () => {
       restore: vi.fn(() => of(transactionFixture())),
     };
     accountsApi = { list: vi.fn(() => of([accountFixture()])) };
+    transfersApi = {
+      list: vi.fn(() => of([])),
+      get: vi.fn(() => of(transferFixture())),
+      create: vi.fn(() => of(transferFixture())),
+      update: vi.fn(() => of(transferFixture({ description: 'Updated transfer' }))),
+      delete: vi.fn(() => of(transferFixture({ status: 'deleted' }))),
+      restore: vi.fn(() => of(transferFixture())),
+    };
     categoriesApi = {
       list: vi.fn(() =>
         of([
@@ -50,6 +64,7 @@ describe('TransactionsPage', () => {
       imports: [TransactionsPage],
       providers: [
         { provide: TransactionsApiService, useValue: transactionsApi },
+        { provide: TransfersApiService, useValue: transfersApi },
         { provide: AccountsApiService, useValue: accountsApi },
         { provide: CategoriesApiService, useValue: categoriesApi },
         { provide: NotificationService, useValue: notifications },
@@ -64,6 +79,7 @@ describe('TransactionsPage', () => {
     const fixture = TestBed.createComponent(TransactionsPage);
     fixture.detectChanges();
     expect(transactionsApi.list).toHaveBeenCalledWith('all');
+    expect(transfersApi.list).toHaveBeenCalledWith('all');
     expect(accountsApi.list).toHaveBeenCalledWith('all');
     expect(categoriesApi.list).toHaveBeenCalledWith('all');
     expect(transactionsApi.summarize).toHaveBeenCalledWith(firstDayOfCurrentMonth(), localToday());
@@ -315,6 +331,175 @@ describe('TransactionsPage', () => {
     expect(presenter.present).toHaveBeenCalledWith(error);
   });
 
+  it('mirrors a same-currency transfer amount into both API fields', () => {
+    accountsApi.list.mockReturnValue(
+      of([accountFixture(), accountFixture({ id: 'savings', name: 'Savings' })]),
+    );
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+    component.selectCreateMode('transfer');
+    component.transferCreateForm.setValue({
+      sourceAccountId: 'account-1',
+      destinationAccountId: 'savings',
+      sourceAmount: 125,
+      destinationAmount: null,
+      transactionDate: localToday(),
+      description: 'Monthly savings',
+      notes: '',
+      externalReference: '',
+    });
+    component.createTransfer();
+
+    expect(transfersApi.create).toHaveBeenCalledWith({
+      sourceAccountId: 'account-1',
+      destinationAccountId: 'savings',
+      sourceAmount: 125,
+      destinationAmount: 125,
+      transactionDate: localToday(),
+      description: 'Monthly savings',
+      notes: null,
+      externalReference: null,
+    });
+    expect(transfersApi.list).toHaveBeenCalledTimes(2);
+    expect(accountsApi.list).toHaveBeenCalledTimes(2);
+    expect(transactionsApi.summarize).toHaveBeenCalledTimes(2);
+  });
+
+  it('requires an explicit destination amount for a cross-currency transfer', () => {
+    accountsApi.list.mockReturnValue(
+      of([
+        accountFixture(),
+        accountFixture({ id: 'euro-account', name: 'Travel cash', currency: 'EUR' }),
+      ]),
+    );
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+    component.selectCreateMode('transfer');
+    component.transferCreateForm.setValue({
+      sourceAccountId: 'account-1',
+      destinationAccountId: 'euro-account',
+      sourceAmount: 100,
+      destinationAmount: null,
+      transactionDate: localToday(),
+      description: 'Travel exchange',
+      notes: '',
+      externalReference: '',
+    });
+    component.createTransfer();
+    fixture.detectChanges();
+
+    expect(transfersApi.create).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('Enter the exact amount received');
+
+    component.transferCreateForm.controls.destinationAmount.setValue(92);
+    component.createTransfer();
+    expect(transfersApi.create).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceAmount: 100, destinationAmount: 92 }),
+    );
+  });
+
+  it('uses one modern composer and keeps its activity mode explicit', () => {
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+
+    expect(fixture.nativeElement.textContent).toContain('Record an expense');
+    expect(fixture.nativeElement.textContent).not.toContain('Move money between accounts');
+
+    component.selectCreateMode('income');
+    fixture.detectChanges();
+    expect(component.createForm.controls.type.value).toBe('income');
+    expect(fixture.nativeElement.textContent).toContain('Record income');
+
+    component.selectCreateMode('transfer');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Move money between accounts');
+    expect(fixture.nativeElement.textContent).not.toContain('Record an expense');
+  });
+
+  it('uses a compact ledger toolbar for status and period controls', () => {
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    const toolbar = fixture.nativeElement.querySelector('.ledger-toolbar');
+
+    expect(fixture.nativeElement.querySelector('.summary-panel')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Ledger filter');
+    expect(toolbar.querySelector('nav[aria-label="Transaction status"]')).not.toBeNull();
+    expect(toolbar.querySelector('#summary-period')).not.toBeNull();
+  });
+
+  it('renders one aggregate transfer instead of its two ledger legs', () => {
+    transfersApi.list.mockReturnValue(of([transferFixture()]));
+    transactionsApi.list.mockReturnValue(
+      of([
+        transactionFixture({
+          id: 'source-leg',
+          transferId: 'transfer-1',
+          type: 'transfer_out',
+          description: 'Monthly savings',
+        }),
+        transactionFixture({
+          id: 'destination-leg',
+          accountId: 'savings',
+          transferId: 'transfer-1',
+          type: 'transfer_in',
+          description: 'Monthly savings',
+        }),
+      ]),
+    );
+    accountsApi.list.mockReturnValue(
+      of([accountFixture(), accountFixture({ id: 'savings', name: 'Savings' })]),
+    );
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Transfer');
+    expect(fixture.nativeElement.querySelectorAll('.transaction-card')).toHaveLength(1);
+    expect(fixture.nativeElement.textContent).toContain('Checking · USD → Savings · USD');
+  });
+
+  it('confirms that deleting a transfer reverses both account balances', () => {
+    vi.spyOn(globalThis, 'confirm').mockReturnValue(true);
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    (fixture.componentInstance as any).deleteTransfer(transferFixture());
+
+    expect(globalThis.confirm).toHaveBeenCalledWith(
+      'Delete Monthly savings? The balance changes on both accounts will be reversed, and the transfer can be restored.',
+    );
+    expect(transfersApi.delete).toHaveBeenCalledWith('transfer-1');
+  });
+
+  it('fully replaces and restores a transfer through aggregate endpoints', () => {
+    accountsApi.list.mockReturnValue(
+      of([accountFixture(), accountFixture({ id: 'savings', name: 'Savings' })]),
+    );
+    transfersApi.list.mockReturnValue(of([transferFixture()]));
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+    const transfer = transferFixture();
+    component.startTransferEdit(transfer);
+    component.transferEditForm.controls.description.setValue('Updated transfer');
+    component.saveTransferEdit(transfer);
+
+    expect(transfersApi.update).toHaveBeenCalledWith(
+      'transfer-1',
+      expect.objectContaining({
+        sourceAccountId: 'account-1',
+        destinationAccountId: 'savings',
+        sourceAmount: 125,
+        destinationAmount: 125,
+        description: 'Updated transfer',
+      }),
+    );
+
+    component.restoreTransfer(transferFixture({ status: 'deleted' }));
+    expect(transfersApi.restore).toHaveBeenCalledWith('transfer-1');
+  });
+
   it('renders API field validation beside its field', () => {
     const error = new AppHttpError('validation', 'Validation failed', 400, {
       transactionDate: 'must not be in the future',
@@ -346,12 +531,35 @@ function transactionFixture(overrides: Partial<FinancialTransaction> = {}): Fina
     ownerId: 'owner-1',
     accountId: 'account-1',
     categoryId: 'category-1',
+    transferId: null,
     amount: 12.5,
     balanceImpact: -12.5,
     type: 'expense',
     transactionDate: '2026-08-23',
     description: 'Lunch',
     merchantPayee: 'Cafe',
+    notes: null,
+    externalReference: null,
+    status: 'active',
+    deletedAt: null,
+    createdAt: '2026-08-23T12:00:00Z',
+    updatedAt: '2026-08-23T12:00:00Z',
+    ...overrides,
+  };
+}
+
+function transferFixture(overrides: Partial<FinancialTransfer> = {}): FinancialTransfer {
+  return {
+    id: 'transfer-1',
+    ownerId: 'owner-1',
+    sourceTransactionId: 'source-leg',
+    destinationTransactionId: 'destination-leg',
+    sourceAccountId: 'account-1',
+    destinationAccountId: 'savings',
+    sourceAmount: 125,
+    destinationAmount: 125,
+    transactionDate: localToday(),
+    description: 'Monthly savings',
     notes: null,
     externalReference: null,
     status: 'active',
