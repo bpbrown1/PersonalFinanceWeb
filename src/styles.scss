@@ -83,3 +83,18 @@ textarea[aria-invalid='true'] {
   font-size: 0.8rem;
   font-weight: 700;
 }
+
+.transaction-card.transfer {
+  border-inline-start-color: var(--color-primary);
+}
+
+.transaction-card.transfer .transaction-type,
+.transaction-card.transfer .type-mark {
+  color: var(--color-primary);
+}
+
+.transfer-hint {
+  align-self: end;
+  color: var(--color-muted);
+  font-size: 0.82rem;
+}

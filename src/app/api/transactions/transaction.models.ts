@@ -1,4 +1,5 @@
-export type TransactionType = 'income' | 'expense';
+export type CashFlowTransactionType = 'income' | 'expense';
+export type TransactionType = CashFlowTransactionType | 'transfer_out' | 'transfer_in';
 export type TransactionStatus = 'active' | 'deleted';
 export type TransactionStatusFilter = TransactionStatus | 'all';
 
@@ -7,6 +8,7 @@ export interface FinancialTransaction {
   ownerId: string;
   accountId: string;
   categoryId: string | null;
+  transferId: string | null;
   amount: number;
   balanceImpact: number;
   type: TransactionType;
@@ -26,7 +28,7 @@ export interface SaveTransactionRequest {
   amount: number;
   transactionDate: string;
   description: string;
-  type: TransactionType;
+  type: CashFlowTransactionType;
   categoryId: string | null;
   merchantPayee: string | null;
   notes: string | null;

@@ -182,6 +182,182 @@
   </form>
 </section>
 
+<section class="create-panel transaction-form" aria-labelledby="transfer-heading">
+  <div>
+    <p class="eyebrow">Transfer</p>
+    <h2 id="transfer-heading">Move money between accounts</h2>
+    <p>Transfers change two account balances but do not count as income or spending.</p>
+  </div>
+  <form [formGroup]="transferCreateForm" (ngSubmit)="createTransfer()" novalidate>
+    <div class="field">
+      <label for="transfer-source">From account <span>(required)</span></label>
+      <select
+        id="transfer-source"
+        formControlName="sourceAccountId"
+        (change)="onTransferAccountChanged('create')"
+      >
+        <option value="">Select the source</option>
+        @for (
+          account of transferAccountOptions(transferCreateForm.controls.destinationAccountId.value);
+          track account.id
+        ) {
+          <option [value]="account.id">{{ account.name }} · {{ account.currency }}</option>
+        }
+      </select>
+      @if (
+        transferCreateForm.controls.sourceAccountId.touched &&
+        transferCreateForm.controls.sourceAccountId.invalid
+      ) {
+        <p class="field-error">Select the account money leaves.</p>
+      } @else if (fieldError(transferCreateError(), 'sourceAccountId')) {
+        <p class="field-error" role="alert">
+          {{ fieldError(transferCreateError(), 'sourceAccountId') }}
+        </p>
+      }
+    </div>
+    <div class="field">
+      <label for="transfer-destination">To account <span>(required)</span></label>
+      <select
+        id="transfer-destination"
+        formControlName="destinationAccountId"
+        (change)="onTransferAccountChanged('create')"
+      >
+        <option value="">Select the destination</option>
+        @for (
+          account of transferAccountOptions(transferCreateForm.controls.sourceAccountId.value);
+          track account.id
+        ) {
+          <option [value]="account.id">{{ account.name }} · {{ account.currency }}</option>
+        }
+      </select>
+      @if (
+        transferCreateForm.controls.destinationAccountId.touched &&
+        transferCreateForm.controls.destinationAccountId.invalid
+      ) {
+        <p class="field-error">Select a different destination account.</p>
+      } @else if (fieldError(transferCreateError(), 'destinationAccountId')) {
+        <p class="field-error" role="alert">
+          {{ fieldError(transferCreateError(), 'destinationAccountId') }}
+        </p>
+      }
+    </div>
+    <div class="field">
+      <label for="transfer-source-amount">
+        Amount sent · {{ transferCurrency(transferCreateForm.controls.sourceAccountId.value) }}
+        <span>(required)</span>
+      </label>
+      <input
+        id="transfer-source-amount"
+        type="number"
+        min="0.01"
+        step="0.01"
+        inputmode="decimal"
+        formControlName="sourceAmount"
+      />
+      @if (
+        transferCreateForm.controls.sourceAmount.touched &&
+        transferCreateForm.controls.sourceAmount.invalid
+      ) {
+        <p class="field-error">Enter a positive amount with up to two decimals.</p>
+      } @else if (fieldError(transferCreateError(), 'sourceAmount')) {
+        <p class="field-error" role="alert">
+          {{ fieldError(transferCreateError(), 'sourceAmount') }}
+        </p>
+      }
+    </div>
+    @if (
+      transferCreateForm.controls.sourceAccountId.value &&
+      transferCreateForm.controls.destinationAccountId.value &&
+      !transferCurrenciesMatch(transferCreateForm)
+    ) {
+      <div class="field">
+        <label for="transfer-destination-amount">
+          Amount received ·
+          {{ transferCurrency(transferCreateForm.controls.destinationAccountId.value) }}
+          <span>(required)</span>
+        </label>
+        <input
+          id="transfer-destination-amount"
+          type="number"
+          min="0.01"
+          step="0.01"
+          inputmode="decimal"
+          formControlName="destinationAmount"
+        />
+        @if (
+          transferCreateForm.controls.destinationAmount.touched &&
+          transferCreateForm.controls.destinationAmount.invalid
+        ) {
+          <p class="field-error">Enter the exact amount received, with up to two decimals.</p>
+        } @else if (fieldError(transferCreateError(), 'destinationAmount')) {
+          <p class="field-error" role="alert">
+            {{ fieldError(transferCreateError(), 'destinationAmount') }}
+          </p>
+        }
+      </div>
+    } @else if (transferCurrenciesMatch(transferCreateForm)) {
+      <p class="transfer-hint">
+        The same amount will be added to the destination account because both accounts use
+        {{ transferCurrency(transferCreateForm.controls.sourceAccountId.value) }}.
+      </p>
+    }
+    <div class="field">
+      <label for="transfer-date">Date <span>(required)</span></label>
+      <input
+        id="transfer-date"
+        type="date"
+        formControlName="transactionDate"
+        [min]="transferMinDate(transferCreateForm)"
+        [max]="today"
+      />
+      @if (fieldError(transferCreateError(), 'transactionDate')) {
+        <p class="field-error" role="alert">
+          {{ fieldError(transferCreateError(), 'transactionDate') }}
+        </p>
+      }
+    </div>
+    <div class="field description">
+      <label for="transfer-description">Description <span>(required)</span></label>
+      <input id="transfer-description" maxlength="255" formControlName="description" />
+      @if (
+        transferCreateForm.controls.description.touched &&
+        transferCreateForm.controls.description.invalid
+      ) {
+        <p class="field-error">Enter a description.</p>
+      } @else if (fieldError(transferCreateError(), 'description')) {
+        <p class="field-error" role="alert">
+          {{ fieldError(transferCreateError(), 'description') }}
+        </p>
+      }
+    </div>
+    <div class="field">
+      <label for="transfer-reference">Reference <span>(optional)</span></label>
+      <input id="transfer-reference" maxlength="255" formControlName="externalReference" />
+    </div>
+    <div class="field notes">
+      <label for="transfer-notes">Notes <span>(optional)</span></label>
+      <textarea id="transfer-notes" maxlength="2000" rows="2" formControlName="notes"></textarea>
+    </div>
+    <button
+      class="primary-button"
+      type="submit"
+      [disabled]="mutationBusy() || activeAccounts().length < 2"
+    >
+      {{ transferCreateSubmission.busy() ? 'Transferring…' : 'Record transfer' }}
+    </button>
+    @if (activeAccounts().length < 2 && !loading()) {
+      <p class="form-error field-error">
+        Add or restore at least two active accounts before recording a transfer.
+      </p>
+    }
+    @if (formError(transferCreateError())) {
+      <p class="form-error field-error" role="alert">
+        {{ formError(transferCreateError()) }}
+      </p>
+    }
+  </form>
+</section>
+
 <section class="summary-panel" aria-labelledby="period-heading">
   <div>
     <p class="eyebrow">Ledger filter</p>
@@ -313,7 +489,7 @@
     actionLabel="Try again"
     (action)="load()"
   />
-} @else if (visibleTransactions().length === 0) {
+} @else if (visibleTransactions().length === 0 && visibleTransfers().length === 0) {
   <app-page-state
     kind="empty"
     [title]="
@@ -324,11 +500,252 @@
     [message]="
       filter() === 'deleted'
         ? 'Choose a different date range to find other deleted transactions.'
-        : 'Choose a different date range or record a new income or spending entry.'
+        : 'Choose a different date range or record a new transaction or transfer.'
     "
   />
 } @else {
   <section class="ledger" aria-live="polite" aria-label="Transaction ledger">
+    @for (transfer of visibleTransfers(); track transfer.id) {
+      <article class="transaction-card transfer" [class.deleted]="transfer.status === 'deleted'">
+        @if (editingTransferId() === transfer.id) {
+          <form
+            class="edit-form"
+            [formGroup]="transferEditForm"
+            (ngSubmit)="saveTransferEdit(transfer)"
+            novalidate
+          >
+            <div class="field">
+              <label [for]="'transfer-edit-source-' + transfer.id">From account</label>
+              <select
+                [id]="'transfer-edit-source-' + transfer.id"
+                formControlName="sourceAccountId"
+                (change)="onTransferAccountChanged('edit')"
+              >
+                @for (
+                  account of transferAccountOptions(
+                    transferEditForm.controls.destinationAccountId.value,
+                    transfer.sourceAccountId
+                  );
+                  track account.id
+                ) {
+                  <option [value]="account.id">{{ account.name }} · {{ account.currency }}</option>
+                }
+              </select>
+              @if (fieldError(transferEditError(), 'sourceAccountId')) {
+                <p class="field-error" role="alert">
+                  {{ fieldError(transferEditError(), 'sourceAccountId') }}
+                </p>
+              }
+            </div>
+            <div class="field">
+              <label [for]="'transfer-edit-destination-' + transfer.id">To account</label>
+              <select
+                [id]="'transfer-edit-destination-' + transfer.id"
+                formControlName="destinationAccountId"
+                (change)="onTransferAccountChanged('edit')"
+              >
+                @for (
+                  account of transferAccountOptions(
+                    transferEditForm.controls.sourceAccountId.value,
+                    transfer.destinationAccountId
+                  );
+                  track account.id
+                ) {
+                  <option [value]="account.id">{{ account.name }} · {{ account.currency }}</option>
+                }
+              </select>
+              @if (fieldError(transferEditError(), 'destinationAccountId')) {
+                <p class="field-error" role="alert">
+                  {{ fieldError(transferEditError(), 'destinationAccountId') }}
+                </p>
+              }
+            </div>
+            <div class="field">
+              <label [for]="'transfer-edit-source-amount-' + transfer.id">
+                Amount sent ·
+                {{ transferCurrency(transferEditForm.controls.sourceAccountId.value) }}
+              </label>
+              <input
+                [id]="'transfer-edit-source-amount-' + transfer.id"
+                type="number"
+                min="0.01"
+                step="0.01"
+                formControlName="sourceAmount"
+              />
+              @if (
+                transferEditForm.controls.sourceAmount.touched &&
+                transferEditForm.controls.sourceAmount.invalid
+              ) {
+                <p class="field-error">Enter a positive amount with up to two decimals.</p>
+              }
+            </div>
+            @if (!transferCurrenciesMatch(transferEditForm)) {
+              <div class="field">
+                <label [for]="'transfer-edit-destination-amount-' + transfer.id">
+                  Amount received ·
+                  {{ transferCurrency(transferEditForm.controls.destinationAccountId.value) }}
+                </label>
+                <input
+                  [id]="'transfer-edit-destination-amount-' + transfer.id"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  formControlName="destinationAmount"
+                />
+                @if (
+                  transferEditForm.controls.destinationAmount.touched &&
+                  transferEditForm.controls.destinationAmount.invalid
+                ) {
+                  <p class="field-error">Enter the exact amount received.</p>
+                }
+              </div>
+            }
+            <div class="field">
+              <label [for]="'transfer-edit-date-' + transfer.id">Date</label>
+              <input
+                [id]="'transfer-edit-date-' + transfer.id"
+                type="date"
+                formControlName="transactionDate"
+                [min]="transferMinDate(transferEditForm)"
+                [max]="today"
+              />
+              @if (fieldError(transferEditError(), 'transactionDate')) {
+                <p class="field-error" role="alert">
+                  {{ fieldError(transferEditError(), 'transactionDate') }}
+                </p>
+              }
+            </div>
+            <div class="field description">
+              <label [for]="'transfer-edit-description-' + transfer.id">Description</label>
+              <input
+                [id]="'transfer-edit-description-' + transfer.id"
+                maxlength="255"
+                formControlName="description"
+              />
+              @if (fieldError(transferEditError(), 'description')) {
+                <p class="field-error" role="alert">
+                  {{ fieldError(transferEditError(), 'description') }}
+                </p>
+              }
+            </div>
+            <div class="field">
+              <label [for]="'transfer-edit-reference-' + transfer.id">Reference</label>
+              <input
+                [id]="'transfer-edit-reference-' + transfer.id"
+                maxlength="255"
+                formControlName="externalReference"
+              />
+            </div>
+            <div class="field notes">
+              <label [for]="'transfer-edit-notes-' + transfer.id">Notes</label>
+              <textarea
+                [id]="'transfer-edit-notes-' + transfer.id"
+                maxlength="2000"
+                rows="2"
+                formControlName="notes"
+              ></textarea>
+            </div>
+            @if (formError(transferEditError())) {
+              <p class="form-error field-error" role="alert">
+                {{ formError(transferEditError()) }}
+              </p>
+            }
+            <footer>
+              <button
+                type="button"
+                class="text-button"
+                [disabled]="transferEditSubmission.busy()"
+                (click)="cancelTransferEdit()"
+              >
+                Cancel
+              </button>
+              <button class="primary-button" type="submit" [disabled]="mutationBusy()">
+                {{ transferEditSubmission.busy() ? 'Saving both sides…' : 'Save transfer' }}
+              </button>
+            </footer>
+          </form>
+        } @else {
+          <div class="transaction-main">
+            <span class="type-mark" aria-hidden="true">⇄</span>
+            <div>
+              <p class="transaction-type">Transfer</p>
+              <h2>{{ transfer.description }}</h2>
+              <p>
+                {{ accountLabel(transfer.sourceAccountId) }} →
+                {{ accountLabel(transfer.destinationAccountId) }}
+              </p>
+            </div>
+            <strong>
+              {{ transfer.sourceAmount | currency: transferCurrency(transfer.sourceAccountId) }}
+              →
+              {{
+                transfer.destinationAmount
+                  | currency: transferCurrency(transfer.destinationAccountId)
+              }}
+            </strong>
+          </div>
+          <dl class="transaction-details">
+            <div>
+              <dt>Date</dt>
+              <dd>{{ transfer.transactionDate | date: 'mediumDate' }}</dd>
+            </div>
+            <div>
+              <dt>Balance effect</dt>
+              <dd>Removed from source · added to destination</dd>
+            </div>
+            @if (transfer.externalReference) {
+              <div>
+                <dt>Reference</dt>
+                <dd>{{ transfer.externalReference }}</dd>
+              </div>
+            }
+            @if (transfer.notes) {
+              <div>
+                <dt>Notes</dt>
+                <dd>{{ transfer.notes }}</dd>
+              </div>
+            }
+          </dl>
+          @if (transfer.deletedAt) {
+            <p class="deleted-note">
+              Deleted {{ transfer.deletedAt | date: 'medium' }} · Both balance changes reversed
+            </p>
+          }
+          @if (lifecycleError()?.id === transfer.id) {
+            <p class="field-error" role="alert">{{ lifecycleError()!.error.userMessage }}</p>
+          }
+          <footer>
+            @if (transfer.status === 'active') {
+              <button
+                type="button"
+                class="text-button"
+                [disabled]="mutationBusy()"
+                (click)="startTransferEdit(transfer)"
+              >
+                Edit transfer
+              </button>
+              <button
+                type="button"
+                class="secondary-button danger"
+                [disabled]="mutationBusy()"
+                (click)="deleteTransfer(transfer)"
+              >
+                Delete transfer
+              </button>
+            } @else {
+              <button
+                type="button"
+                class="secondary-button"
+                [disabled]="mutationBusy()"
+                (click)="restoreTransfer(transfer)"
+              >
+                Restore transfer
+              </button>
+            }
+          </footer>
+        }
+      </article>
+    }
     @for (transaction of visibleTransactions(); track transaction.id) {
       <article
         class="transaction-card"
