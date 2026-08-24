@@ -180,18 +180,138 @@
           </p>
         }
       </div>
-      <div class="field">
-        <label for="new-category">Category <span>(optional)</span></label>
-        <select id="new-category" formControlName="categoryId">
-          <option value="">Uncategorized</option>
-          @for (category of categoryOptions(createForm.controls.type.value); track category.id) {
-            <option [value]="category.id">{{ category.name }}</option>
-          }
-        </select>
-        @if (fieldError(createError(), 'categoryId')) {
-          <p class="field-error" role="alert">{{ fieldError(createError(), 'categoryId') }}</p>
+      <fieldset class="allocation-fieldset">
+        <legend>Category allocation</legend>
+        <div class="allocation-mode" role="group" aria-label="Category allocation mode">
+          <button
+            type="button"
+            [class.selected]="!createForm.controls.splitEnabled.value"
+            [attr.aria-pressed]="!createForm.controls.splitEnabled.value"
+            (click)="toggleSplits('create', false)"
+          >
+            One category
+          </button>
+          <button
+            type="button"
+            [class.selected]="createForm.controls.splitEnabled.value"
+            [attr.aria-pressed]="createForm.controls.splitEnabled.value"
+            (click)="toggleSplits('create', true)"
+          >
+            Split across categories
+          </button>
+        </div>
+        @if (!createForm.controls.splitEnabled.value) {
+          <div class="field allocation-category">
+            <label for="new-category">Category <span>(optional)</span></label>
+            <select id="new-category" formControlName="categoryId">
+              <option value="">Uncategorized</option>
+              @for (
+                category of categoryOptions(createForm.controls.type.value);
+                track category.id
+              ) {
+                <option [value]="category.id">{{ category.name }}</option>
+              }
+            </select>
+            @if (fieldError(createError(), 'categoryId')) {
+              <p class="field-error" role="alert">{{ fieldError(createError(), 'categoryId') }}</p>
+            }
+          </div>
+        } @else {
+          <div class="split-editor" formArrayName="splits">
+            <div class="split-heading">
+              <div>
+                <strong>Split allocation</strong>
+                <p>Choose a different category for each part of the transaction.</p>
+              </div>
+              <button type="button" class="text-button" (click)="addSplitRow('create')">
+                Add category
+              </button>
+            </div>
+            @for (row of createForm.controls.splits.controls; track row; let index = $index) {
+              <div class="split-row" [formGroupName]="index">
+                <span class="split-number">{{ index + 1 }}</span>
+                <div class="field">
+                  <label [for]="'new-split-category-' + index">Category</label>
+                  <select [id]="'new-split-category-' + index" formControlName="categoryId">
+                    <option value="">Select a category</option>
+                    @for (category of splitCategoryOptions(createForm, index); track category.id) {
+                      <option [value]="category.id">{{ category.name }}</option>
+                    }
+                  </select>
+                  @if (row.controls.categoryId.touched && row.controls.categoryId.invalid) {
+                    <p class="field-error">Select a category.</p>
+                  } @else if (splitCategoryDuplicate(createForm, index)) {
+                    <p class="field-error">Choose a different category.</p>
+                  } @else if (splitFieldError(createError(), index, 'categoryId')) {
+                    <p class="field-error" role="alert">
+                      {{ splitFieldError(createError(), index, 'categoryId') }}
+                    </p>
+                  }
+                </div>
+                <div class="field">
+                  <label [for]="'new-split-amount-' + index">Amount</label>
+                  <input
+                    [id]="'new-split-amount-' + index"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    inputmode="decimal"
+                    formControlName="amount"
+                  />
+                  @if (row.controls.amount.touched && row.controls.amount.invalid) {
+                    <p class="field-error">Enter a positive amount with up to two decimals.</p>
+                  } @else if (splitFieldError(createError(), index, 'amount')) {
+                    <p class="field-error" role="alert">
+                      {{ splitFieldError(createError(), index, 'amount') }}
+                    </p>
+                  }
+                </div>
+                <button
+                  type="button"
+                  class="icon-button danger"
+                  [disabled]="createForm.controls.splits.length <= 2"
+                  [attr.aria-label]="'Remove split row ' + (index + 1)"
+                  (click)="removeSplitRow('create', index)"
+                >
+                  ×
+                </button>
+              </div>
+            }
+            <div class="allocation-summary" aria-live="polite">
+              <span
+                >Total
+                <strong>{{
+                  createForm.controls.amount.value ?? 0 | currency: transactionCurrency(createForm)
+                }}</strong></span
+              >
+              <span
+                >Allocated
+                <strong>{{
+                  splitAllocated(createForm) | currency: transactionCurrency(createForm)
+                }}</strong></span
+              >
+              <span
+                [class.complete]="splitTotalMatches(createForm)"
+                [class.over]="splitRemaining(createForm) < 0"
+              >
+                {{ splitTotalMatches(createForm) ? 'Exact match' : 'Remaining' }}
+                <strong>{{
+                  splitRemaining(createForm) | currency: transactionCurrency(createForm)
+                }}</strong>
+              </span>
+            </div>
+            @if (createForm.controls.splits.touched && !splitTotalMatches(createForm)) {
+              <p class="field-error split-error">
+                Split amounts must exactly match the transaction amount.
+              </p>
+            } @else if (fieldError(createError(), 'splits')) {
+              <p class="field-error split-error" role="alert">
+                {{ fieldError(createError(), 'splits') }}
+              </p>
+            }
+          </div>
         }
-      </div>
+      </fieldset>
       <div class="field">
         <label for="new-merchant">Merchant / payee <span>(optional)</span></label
         ><input id="new-merchant" maxlength="255" formControlName="merchantPayee" />
@@ -736,7 +856,13 @@
               </td>
               <td data-label="Account">{{ accountLabel(transaction.accountId) }}</td>
               <td data-label="Category">
-                {{ category(transaction.categoryId)?.name ?? 'Uncategorized' }}
+                @if (transaction.splits.length > 0) {
+                  <span class="split-badge"
+                    >Split across {{ transaction.splits.length }} categories</span
+                  >
+                } @else {
+                  {{ category(transaction.categoryId)?.name ?? 'Uncategorized' }}
+                }
               </td>
               <td data-label="Type">
                 <span class="type-pill" [class.income]="transaction.type === 'income'">
@@ -1124,29 +1250,157 @@
                 <p class="field-error" role="alert">{{ fieldError(editError(), 'description') }}</p>
               }
             </div>
-            <div class="field">
-              <label [for]="'edit-category-' + transaction.id"
-                >Category <span>(optional)</span></label
-              >
-              <select [id]="'edit-category-' + transaction.id" formControlName="categoryId">
-                <option value="">Uncategorized</option>
-                @for (
-                  category of categoryOptions(
-                    editForm.controls.type.value,
-                    transaction.categoryId ?? ''
-                  );
-                  track category.id
-                ) {
-                  <option [value]="category.id">
-                    {{ category.name
-                    }}{{ category.status === 'archived' ? ' (archived current category)' : '' }}
-                  </option>
-                }
-              </select>
-              @if (fieldError(editError(), 'categoryId')) {
-                <p class="field-error" role="alert">{{ fieldError(editError(), 'categoryId') }}</p>
+            <fieldset class="allocation-fieldset">
+              <legend>Category allocation</legend>
+              <div class="allocation-mode" role="group" aria-label="Category allocation mode">
+                <button
+                  type="button"
+                  [class.selected]="!editForm.controls.splitEnabled.value"
+                  (click)="toggleSplits('edit', false)"
+                >
+                  One category
+                </button>
+                <button
+                  type="button"
+                  [class.selected]="editForm.controls.splitEnabled.value"
+                  (click)="toggleSplits('edit', true)"
+                >
+                  Split across categories
+                </button>
+              </div>
+              @if (!editForm.controls.splitEnabled.value) {
+                <div class="field allocation-category">
+                  <label [for]="'edit-category-' + transaction.id"
+                    >Category <span>(optional)</span></label
+                  >
+                  <select [id]="'edit-category-' + transaction.id" formControlName="categoryId">
+                    <option value="">Uncategorized</option>
+                    @for (
+                      category of categoryOptions(
+                        editForm.controls.type.value,
+                        transaction.categoryId ?? ''
+                      );
+                      track category.id
+                    ) {
+                      <option [value]="category.id">
+                        {{ category.name
+                        }}{{ category.status === 'archived' ? ' (archived current category)' : '' }}
+                      </option>
+                    }
+                  </select>
+                  @if (fieldError(editError(), 'categoryId')) {
+                    <p class="field-error" role="alert">
+                      {{ fieldError(editError(), 'categoryId') }}
+                    </p>
+                  }
+                </div>
+              } @else {
+                <div class="split-editor" formArrayName="splits">
+                  <div class="split-heading">
+                    <strong>Split allocation</strong>
+                    <button type="button" class="text-button" (click)="addSplitRow('edit')">
+                      Add category
+                    </button>
+                  </div>
+                  @for (row of editForm.controls.splits.controls; track row; let index = $index) {
+                    <div class="split-row" [formGroupName]="index">
+                      <span class="split-number">{{ index + 1 }}</span>
+                      <div class="field">
+                        <label [for]="'edit-split-category-' + index">Category</label>
+                        <select [id]="'edit-split-category-' + index" formControlName="categoryId">
+                          <option value="">Select a category</option>
+                          @for (
+                            category of splitCategoryOptions(editForm, index);
+                            track category.id
+                          ) {
+                            <option [value]="category.id">
+                              {{ category.name
+                              }}{{
+                                category.status === 'archived' ? ' (archived current category)' : ''
+                              }}
+                            </option>
+                          }
+                        </select>
+                        @if (row.controls.categoryId.touched && row.controls.categoryId.invalid) {
+                          <p class="field-error">Select a category.</p>
+                        } @else if (splitCategoryDuplicate(editForm, index)) {
+                          <p class="field-error">Choose a different category.</p>
+                        } @else if (splitFieldError(editError(), index, 'categoryId')) {
+                          <p class="field-error" role="alert">
+                            {{ splitFieldError(editError(), index, 'categoryId') }}
+                          </p>
+                        } @else if (splitFieldError(editError(), index, 'id')) {
+                          <p class="field-error" role="alert">
+                            {{ splitFieldError(editError(), index, 'id') }}
+                          </p>
+                        }
+                      </div>
+                      <div class="field">
+                        <label [for]="'edit-split-amount-' + index">Amount</label>
+                        <input
+                          [id]="'edit-split-amount-' + index"
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          inputmode="decimal"
+                          formControlName="amount"
+                        />
+                        @if (row.controls.amount.touched && row.controls.amount.invalid) {
+                          <p class="field-error">
+                            Enter a positive amount with up to two decimals.
+                          </p>
+                        } @else if (splitFieldError(editError(), index, 'amount')) {
+                          <p class="field-error" role="alert">
+                            {{ splitFieldError(editError(), index, 'amount') }}
+                          </p>
+                        }
+                      </div>
+                      <button
+                        type="button"
+                        class="icon-button danger"
+                        [disabled]="editForm.controls.splits.length <= 2"
+                        [attr.aria-label]="'Remove split row ' + (index + 1)"
+                        (click)="removeSplitRow('edit', index)"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  }
+                  <div class="allocation-summary" aria-live="polite">
+                    <span
+                      >Total
+                      <strong>{{
+                        editForm.controls.amount.value ?? 0
+                          | currency: transactionCurrency(editForm)
+                      }}</strong></span
+                    >
+                    <span
+                      >Allocated
+                      <strong>{{
+                        splitAllocated(editForm) | currency: transactionCurrency(editForm)
+                      }}</strong></span
+                    >
+                    <span
+                      [class.complete]="splitTotalMatches(editForm)"
+                      [class.over]="splitRemaining(editForm) < 0"
+                      >{{ splitTotalMatches(editForm) ? 'Exact match' : 'Remaining' }}
+                      <strong>{{
+                        splitRemaining(editForm) | currency: transactionCurrency(editForm)
+                      }}</strong></span
+                    >
+                  </div>
+                  @if (editForm.controls.splits.touched && !splitTotalMatches(editForm)) {
+                    <p class="field-error split-error">
+                      Split amounts must exactly match the transaction amount.
+                    </p>
+                  } @else if (fieldError(editError(), 'splits')) {
+                    <p class="field-error split-error" role="alert">
+                      {{ fieldError(editError(), 'splits') }}
+                    </p>
+                  }
+                </div>
               }
-            </div>
+            </fieldset>
             <div class="field">
               <label [for]="'edit-merchant-' + transaction.id"
                 >Merchant / payee <span>(optional)</span></label
@@ -1203,7 +1457,9 @@
               <p>
                 {{
                   transaction.merchantPayee ||
-                    (category(transaction.categoryId)?.name ?? 'Uncategorized')
+                    (transaction.splits.length > 0
+                      ? 'Split across ' + transaction.splits.length + ' categories'
+                      : (category(transaction.categoryId)?.name ?? 'Uncategorized'))
                 }}
                 · {{ accountLabel(transaction.accountId) }}
               </p>
@@ -1217,10 +1473,12 @@
               <dt>Date</dt>
               <dd>{{ transaction.transactionDate | date: 'mediumDate' }}</dd>
             </div>
-            <div>
-              <dt>Category</dt>
-              <dd>{{ category(transaction.categoryId)?.name ?? 'Uncategorized' }}</dd>
-            </div>
+            @if (transaction.splits.length === 0) {
+              <div>
+                <dt>Category</dt>
+                <dd>{{ category(transaction.categoryId)?.name ?? 'Uncategorized' }}</dd>
+              </div>
+            }
             @if (transaction.externalReference) {
               <div>
                 <dt>Reference</dt>
@@ -1234,6 +1492,22 @@
               </div>
             }
           </dl>
+          @if (transaction.splits.length > 0) {
+            <section class="split-details" aria-labelledby="split-details-heading">
+              <div>
+                <h3 id="split-details-heading">Category split</h3>
+                <span>{{ transaction.splits.length }} categories</span>
+              </div>
+              <ol>
+                @for (split of transaction.splits; track split.id) {
+                  <li>
+                    <span>{{ category(split.categoryId)?.name ?? 'Unavailable category' }}</span>
+                    <strong>{{ split.amount | currency: currency(transaction) }}</strong>
+                  </li>
+                }
+              </ol>
+            </section>
+          }
           @if (transaction.deletedAt) {
             <p class="deleted-note">
               Deleted {{ transaction.deletedAt | date: 'medium' }} · Balance impact reversed

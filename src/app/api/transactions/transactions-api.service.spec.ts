@@ -15,6 +15,7 @@ describe('TransactionsApiService', () => {
     description: 'Lunch',
     type: 'expense',
     categoryId: null,
+    splits: [],
     merchantPayee: null,
     notes: null,
     externalReference: null,

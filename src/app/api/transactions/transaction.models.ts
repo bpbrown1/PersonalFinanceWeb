@@ -5,11 +5,25 @@ export type TransactionStatusFilter = TransactionStatus | 'all';
 export type TransactionSortField = 'date' | 'amount';
 export type SortDirection = 'asc' | 'desc';
 
+export interface TransactionSplit {
+  id: string;
+  position: number;
+  categoryId: string;
+  amount: number;
+}
+
+export interface SaveTransactionSplitRequest {
+  id?: string;
+  categoryId: string;
+  amount: number;
+}
+
 export interface FinancialTransaction {
   id: string;
   ownerId: string;
   accountId: string;
   categoryId: string | null;
+  splits: TransactionSplit[];
   transferId: string | null;
   amount: number;
   balanceImpact: number;
@@ -32,6 +46,7 @@ export interface SaveTransactionRequest {
   description: string;
   type: CashFlowTransactionType;
   categoryId: string | null;
+  splits: SaveTransactionSplitRequest[];
   merchantPayee: string | null;
   notes: string | null;
   externalReference: string | null;

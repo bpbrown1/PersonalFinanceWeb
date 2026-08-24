@@ -137,6 +137,8 @@ describe('TransactionsPage', () => {
       description: '  Lunch  ',
       type: 'expense',
       categoryId: '',
+      splitEnabled: false,
+      splits: [],
       merchantPayee: '  Cafe ',
       notes: ' ',
       externalReference: '',
@@ -149,6 +151,7 @@ describe('TransactionsPage', () => {
       description: 'Lunch',
       type: 'expense',
       categoryId: null,
+      splits: [],
       merchantPayee: 'Cafe',
       notes: null,
       externalReference: null,
@@ -156,6 +159,139 @@ describe('TransactionsPage', () => {
     expect(transactionsApi.search).toHaveBeenCalledTimes(2);
     expect(accountsApi.list).toHaveBeenCalledTimes(2);
     expect(transactionsApi.summarize).toHaveBeenCalledTimes(2);
+  });
+
+  it('creates an exact split allocation without a parent category', () => {
+    categoriesApi.list.mockReturnValue(
+      of([categoryFixture(), categoryFixture({ id: 'category-2', name: 'Household' })]),
+    );
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+    component.createForm.patchValue({
+      accountId: 'account-1',
+      amount: 12.5,
+      transactionDate: '2026-08-23',
+      description: 'Mixed purchase',
+      type: 'expense',
+      categoryId: 'category-1',
+    });
+    component.toggleSplits('create', true);
+    component.createForm.controls.splits.at(0).patchValue({
+      categoryId: 'category-1',
+      amount: 7.25,
+    });
+    component.createForm.controls.splits.at(1).patchValue({
+      categoryId: 'category-2',
+      amount: 5.25,
+    });
+
+    component.create();
+
+    expect(transactionsApi.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        categoryId: null,
+        splits: [
+          { categoryId: 'category-1', amount: 7.25 },
+          { categoryId: 'category-2', amount: 5.25 },
+        ],
+      }),
+    );
+  });
+
+  it('blocks a split whose cent totals do not exactly match the transaction', () => {
+    categoriesApi.list.mockReturnValue(
+      of([categoryFixture(), categoryFixture({ id: 'category-2', name: 'Household' })]),
+    );
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+    component.createForm.patchValue({
+      accountId: 'account-1',
+      amount: 10,
+      description: 'Mixed purchase',
+    });
+    component.toggleSplits('create', true);
+    component.createForm.controls.splits.at(0).patchValue({ categoryId: 'category-1', amount: 5 });
+    component.createForm.controls.splits
+      .at(1)
+      .patchValue({ categoryId: 'category-2', amount: 4.99 });
+
+    component.create();
+    fixture.detectChanges();
+
+    expect(transactionsApi.create).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain(
+      'Split amounts must exactly match the transaction amount.',
+    );
+  });
+
+  it('retains existing split ids on full-replacement edits and maps indexed errors', () => {
+    const splitTransaction = transactionFixture({
+      categoryId: null,
+      amount: 12.5,
+      splits: [
+        { id: 'split-1', position: 0, categoryId: 'category-1', amount: 7.25 },
+        { id: 'split-2', position: 1, categoryId: 'category-2', amount: 5.25 },
+      ],
+    });
+    categoriesApi.list.mockReturnValue(
+      of([categoryFixture(), categoryFixture({ id: 'category-2', name: 'Household' })]),
+    );
+    transactionsApi.update.mockReturnValue(
+      throwError(
+        () =>
+          new AppHttpError('validation', 'Validation failed', 400, {
+            'splits[1].amount': 'must be greater than zero',
+          }),
+      ),
+    );
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+    component.selectedTransaction.set(splitTransaction);
+    component.startEdit(splitTransaction);
+    component.editForm.controls.description.setValue('Updated split');
+    component.saveEdit(splitTransaction);
+    fixture.detectChanges();
+
+    expect(transactionsApi.update).toHaveBeenCalledWith(
+      'transaction-1',
+      expect.objectContaining({
+        categoryId: null,
+        splits: [
+          { id: 'split-1', categoryId: 'category-1', amount: 7.25 },
+          { id: 'split-2', categoryId: 'category-2', amount: 5.25 },
+        ],
+      }),
+    );
+    expect(fixture.nativeElement.textContent).toContain('must be greater than zero');
+  });
+
+  it('identifies split search results and shows ordered category details', () => {
+    const splitTransaction = transactionFixture({
+      categoryId: null,
+      splits: [
+        { id: 'split-1', position: 0, categoryId: 'category-1', amount: 7.25 },
+        { id: 'split-2', position: 1, categoryId: 'category-2', amount: 5.25 },
+      ],
+    });
+    transactionsApi.search.mockReturnValue(of(pageFixture([splitTransaction])));
+    transactionsApi.get.mockReturnValue(of(splitTransaction));
+    categoriesApi.list.mockReturnValue(
+      of([categoryFixture(), categoryFixture({ id: 'category-2', name: 'Household' })]),
+    );
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Split across 2 categories');
+
+    (fixture.componentInstance as any).openDetails(splitTransaction);
+    fixture.detectChanges();
+
+    const details = fixture.nativeElement.querySelector('.split-details');
+    expect(details.textContent).toContain('Dining');
+    expect(details.textContent).toContain('Household');
+    expect(details.querySelectorAll('li')).toHaveLength(2);
   });
 
   it('filters categories by transaction type and clears incompatible choices', () => {
@@ -648,6 +784,8 @@ describe('TransactionsPage', () => {
       description: 'Lunch',
       type: 'expense',
       categoryId: '',
+      splitEnabled: false,
+      splits: [],
       merchantPayee: '',
       notes: '',
       externalReference: '',
@@ -685,6 +823,7 @@ function transactionFixture(overrides: Partial<FinancialTransaction> = {}): Fina
     balanceImpact: -12.5,
     type: 'expense',
     transactionDate: '2026-08-23',
+    splits: [],
     description: 'Lunch',
     merchantPayee: 'Cafe',
     notes: null,

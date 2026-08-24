@@ -22,6 +22,7 @@ import { SubmissionState } from '../../../api/request-state/submission-state';
 import {
   CashFlowTransactionType,
   FinancialTransaction,
+  SaveTransactionSplitRequest,
   SaveTransactionRequest,
   SortDirection,
   TransactionPage,
@@ -234,15 +235,12 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
 
   protected create(): void {
     this.createError.set(null);
-    if (this.createForm.invalid) {
-      this.createForm.markAllAsTouched();
-      return;
-    }
+    if (!this.transactionFormValid(this.createForm)) return;
     this.createSubmission
       .run(() => this.transactionsApi.create(this.toRequest(this.createForm)))
       .subscribe({
         next: (transaction) => {
-          this.createForm.reset(this.emptyFormValue());
+          this.resetTransactionForm(this.createForm);
           this.createForm.markAsPristine();
           this.notifications.show(`${transaction.description} was recorded.`, 'success');
           this.load();
@@ -267,6 +265,12 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
     this.cancelTransferEdit();
     this.editingId.set(transaction.id);
     this.editError.set(null);
+    this.editForm.controls.splits.clear();
+    transaction.splits.forEach((split) =>
+      this.editForm.controls.splits.push(
+        this.buildSplitRow(split.id, split.categoryId, split.amount),
+      ),
+    );
     this.editForm.reset({
       accountId: transaction.accountId,
       amount: transaction.amount,
@@ -274,6 +278,12 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
       description: transaction.description,
       type: this.cashFlowType(transaction.type),
       categoryId: transaction.categoryId ?? '',
+      splitEnabled: transaction.splits.length > 0,
+      splits: transaction.splits.map((split) => ({
+        id: split.id,
+        categoryId: split.categoryId,
+        amount: split.amount,
+      })),
       merchantPayee: transaction.merchantPayee ?? '',
       notes: transaction.notes ?? '',
       externalReference: transaction.externalReference ?? '',
@@ -329,15 +339,12 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
   protected cancelEdit(): void {
     this.editingId.set(null);
     this.editError.set(null);
-    this.editForm.reset(this.emptyFormValue());
+    this.resetTransactionForm(this.editForm);
   }
 
   protected saveEdit(transaction: FinancialTransaction): void {
     this.editError.set(null);
-    if (this.editForm.invalid) {
-      this.editForm.markAllAsTouched();
-      return;
-    }
+    if (!this.transactionFormValid(this.editForm)) return;
     this.editSubmission
       .run(() => this.transactionsApi.update(transaction.id, this.toRequest(this.editForm)))
       .subscribe({
@@ -545,6 +552,96 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
     const selected = this.category(form.controls.categoryId.value);
     if (selected && !this.categoryMatches(selected, form.controls.type.value))
       form.controls.categoryId.setValue('');
+    form.controls.splits.controls.forEach((row) => {
+      const splitCategory = this.category(row.controls.categoryId.value);
+      if (splitCategory && !this.categoryMatches(splitCategory, form.controls.type.value)) {
+        row.controls.categoryId.setValue('');
+      }
+    });
+  }
+
+  protected toggleSplits(which: 'create' | 'edit', enabled: boolean): void {
+    const form = which === 'create' ? this.createForm : this.editForm;
+    if (form.controls.splitEnabled.value === enabled) return;
+    if (
+      !enabled &&
+      this.splitRowsHaveValues(form) &&
+      !globalThis.confirm('Use one category instead? The current split allocation will be removed.')
+    )
+      return;
+
+    form.controls.splitEnabled.setValue(enabled);
+    form.controls.categoryId.setValue('');
+    form.controls.splits.clear();
+    if (enabled) {
+      form.controls.splits.push(this.buildSplitRow());
+      form.controls.splits.push(this.buildSplitRow());
+    }
+    form.markAsDirty();
+  }
+
+  protected addSplitRow(which: 'create' | 'edit'): void {
+    const form = which === 'create' ? this.createForm : this.editForm;
+    form.controls.splits.push(this.buildSplitRow());
+    form.markAsDirty();
+  }
+
+  protected removeSplitRow(which: 'create' | 'edit', index: number): void {
+    const form = which === 'create' ? this.createForm : this.editForm;
+    if (form.controls.splits.length <= 2) return;
+    form.controls.splits.removeAt(index);
+    form.markAsDirty();
+  }
+
+  protected splitAllocated(form: ReturnType<TransactionsPage['buildForm']>): number {
+    return this.splitAllocatedMinor(form) / 100;
+  }
+
+  protected splitRemaining(form: ReturnType<TransactionsPage['buildForm']>): number {
+    return (this.amountMinor(form) - this.splitAllocatedMinor(form)) / 100;
+  }
+
+  protected splitTotalMatches(form: ReturnType<TransactionsPage['buildForm']>): boolean {
+    return this.amountMinor(form) > 0 && this.splitRemaining(form) === 0;
+  }
+
+  protected splitCategoryDuplicate(
+    form: ReturnType<TransactionsPage['buildForm']>,
+    index: number,
+  ): boolean {
+    const selected = form.controls.splits.at(index).controls.categoryId.value;
+    if (!selected) return false;
+    return form.controls.splits.controls.some(
+      (row, rowIndex) => rowIndex !== index && row.controls.categoryId.value === selected,
+    );
+  }
+
+  protected splitCategoryOptions(
+    form: ReturnType<TransactionsPage['buildForm']>,
+    index: number,
+  ): TransactionCategory[] {
+    const currentId = form.controls.splits.at(index).controls.categoryId.value;
+    const selectedElsewhere = new Set(
+      form.controls.splits.controls
+        .filter((_, rowIndex) => rowIndex !== index)
+        .map((row) => row.controls.categoryId.value)
+        .filter(Boolean),
+    );
+    return this.categoryOptions(form.controls.type.value, currentId).filter(
+      (category) => !selectedElsewhere.has(category.id) || category.id === currentId,
+    );
+  }
+
+  protected splitFieldError(
+    error: AppHttpError | null,
+    index: number,
+    field: 'categoryId' | 'amount' | 'id',
+  ): string | null {
+    return this.fieldError(error, `splits[${index}].${field}`);
+  }
+
+  protected transactionCurrency(form: ReturnType<TransactionsPage['buildForm']>): string {
+    return this.account(form.controls.accountId.value)?.currency ?? 'USD';
   }
 
   protected categoryOptions(type: CashFlowTransactionType, currentId = ''): TransactionCategory[] {
@@ -653,6 +750,8 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
         Validators.required,
       ),
       categoryId: this.formBuilder.nonNullable.control(''),
+      splitEnabled: this.formBuilder.nonNullable.control(false),
+      splits: this.formBuilder.array<ReturnType<TransactionsPage['buildSplitRow']>>([]),
       merchantPayee: this.formBuilder.nonNullable.control('', Validators.maxLength(255)),
       notes: this.formBuilder.nonNullable.control('', Validators.maxLength(2000)),
       externalReference: this.formBuilder.nonNullable.control('', Validators.maxLength(255)),
@@ -684,13 +783,21 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
 
   private toRequest(form: ReturnType<TransactionsPage['buildForm']>): SaveTransactionRequest {
     const value = form.getRawValue();
+    const splits: SaveTransactionSplitRequest[] = value.splitEnabled
+      ? value.splits.map((split) => ({
+          ...(split.id ? { id: split.id } : {}),
+          categoryId: split.categoryId,
+          amount: Number(split.amount),
+        }))
+      : [];
     return {
       accountId: value.accountId,
       amount: Number(value.amount),
       transactionDate: value.transactionDate,
       description: value.description.trim(),
       type: value.type,
-      categoryId: value.categoryId || null,
+      categoryId: value.splitEnabled ? null : value.categoryId || null,
+      splits,
       merchantPayee: value.merchantPayee.trim() || null,
       notes: value.notes.trim() || null,
       externalReference: value.externalReference.trim() || null,
@@ -705,10 +812,63 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
       description: '',
       type: 'expense' as CashFlowTransactionType,
       categoryId: '',
+      splitEnabled: false,
+      splits: [],
       merchantPayee: '',
       notes: '',
       externalReference: '',
     };
+  }
+
+  private buildSplitRow(id = '', categoryId = '', amount: number | null = null) {
+    return this.formBuilder.group({
+      id: this.formBuilder.nonNullable.control(id),
+      categoryId: this.formBuilder.nonNullable.control(categoryId, Validators.required),
+      amount: this.formBuilder.control<number | null>(amount, [
+        Validators.required,
+        Validators.min(0.01),
+        Validators.pattern(/^\d{1,17}(\.\d{1,2})?$/),
+      ]),
+    });
+  }
+
+  private resetTransactionForm(form: ReturnType<TransactionsPage['buildForm']>): void {
+    form.controls.splits.clear();
+    form.reset(this.emptyFormValue());
+  }
+
+  private transactionFormValid(form: ReturnType<TransactionsPage['buildForm']>): boolean {
+    if (form.invalid) {
+      form.markAllAsTouched();
+      return false;
+    }
+    if (!form.controls.splitEnabled.value) return true;
+    const invalidAllocation =
+      form.controls.splits.length < 2 ||
+      form.controls.splits.controls.some((_, index) => this.splitCategoryDuplicate(form, index)) ||
+      !this.splitTotalMatches(form);
+    if (invalidAllocation) {
+      form.controls.splits.markAllAsTouched();
+      return false;
+    }
+    return true;
+  }
+
+  private splitRowsHaveValues(form: ReturnType<TransactionsPage['buildForm']>): boolean {
+    return form.controls.splits.controls.some(
+      (row) => !!row.controls.categoryId.value || row.controls.amount.value !== null,
+    );
+  }
+
+  private amountMinor(form: ReturnType<TransactionsPage['buildForm']>): number {
+    return Math.round(Number(form.controls.amount.value ?? 0) * 100);
+  }
+
+  private splitAllocatedMinor(form: ReturnType<TransactionsPage['buildForm']>): number {
+    return form.controls.splits.controls.reduce(
+      (total, row) => total + Math.round(Number(row.controls.amount.value ?? 0) * 100),
+      0,
+    );
   }
 
   private emptyTransferFormValue() {
