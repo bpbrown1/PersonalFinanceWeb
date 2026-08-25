@@ -1,10 +1,14 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 import { Observable, finalize, forkJoin } from 'rxjs';
 import {
   Budget,
   BudgetLine,
+  BudgetLineProgress,
+  BudgetProgress,
+  BudgetProgressDrillDown,
   BudgetStatus,
   SaveBudgetLineRequest,
 } from '../../../api/budgets/budget.models';
@@ -18,6 +22,11 @@ import { HasPendingChanges } from '../../../core/guards/pending-changes.guard';
 import { NotificationService } from '../../../core/notification.service';
 import { PageState } from '../../../shared/page-state/page-state';
 
+type ProgressStatus = 'no_plan' | 'on_track' | 'approaching' | 'at_limit' | 'over_budget';
+type ProgressStatusFilter = ProgressStatus | 'all';
+type ProgressSort =
+  'position' | 'category' | 'planned' | 'actual' | 'remaining' | 'percentage' | 'status';
+
 @Component({
   selector: 'app-budgets-page',
   imports: [ReactiveFormsModule, CurrencyPipe, DatePipe, PageState],
@@ -30,15 +39,20 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
   private readonly errors = inject(ApiErrorPresenter);
   private readonly notifications = inject(NotificationService);
   private readonly formBuilder = inject(FormBuilder);
+  private readonly router = inject(Router);
+  private progressRequestBudgetId: string | null = null;
 
   protected readonly budgets = signal<Budget[]>([]);
   protected readonly categories = signal<TransactionCategory[]>([]);
   protected readonly filter = signal<BudgetStatus>('active');
   protected readonly selectedBudget = signal<Budget | null>(null);
+  protected readonly progress = signal<BudgetProgress | null>(null);
   protected readonly loading = signal(true);
   protected readonly detailLoading = signal(false);
+  protected readonly progressLoading = signal(false);
   protected readonly loadError = signal<AppHttpError | null>(null);
   protected readonly detailError = signal<AppHttpError | null>(null);
+  protected readonly progressError = signal<AppHttpError | null>(null);
   protected readonly createError = signal<AppHttpError | null>(null);
   protected readonly editError = signal<AppHttpError | null>(null);
   protected readonly lineError = signal<AppHttpError | null>(null);
@@ -46,6 +60,9 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
   protected readonly editingBudget = signal(false);
   protected readonly editingLineId = signal<string | null>(null);
   protected readonly changing = signal(false);
+  protected readonly progressStatusFilter = signal<ProgressStatusFilter>('all');
+  protected readonly progressSort = signal<ProgressSort>('position');
+  protected readonly progressSortDirection = signal<'asc' | 'desc'>('asc');
   protected readonly createSubmission = new SubmissionState();
   protected readonly editSubmission = new SubmissionState();
   protected readonly lineSubmission = new SubmissionState();
@@ -61,6 +78,13 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
       (category) => category.status === 'active' && category.applicability !== 'income',
     ),
   );
+  protected readonly visibleProgressLines = computed(() => {
+    const filter = this.progressStatusFilter();
+    const direction = this.progressSortDirection() === 'asc' ? 1 : -1;
+    return [...(this.progress()?.lines ?? [])]
+      .filter((line) => filter === 'all' || this.progressStatus(line) === filter)
+      .sort((left, right) => direction * this.compareProgressLines(left, right));
+  });
   protected readonly createForm = this.buildCreateForm();
   protected readonly editForm = this.formBuilder.group({
     name: this.formBuilder.nonNullable.control('', [
@@ -108,6 +132,8 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
     if (!this.discardPendingChanges()) return;
     this.detailLoading.set(true);
     this.detailError.set(null);
+    this.progress.set(null);
+    this.loadProgress(budget.id);
     this.api
       .get(budget.id)
       .pipe(finalize(() => this.detailLoading.set(false)))
@@ -119,6 +145,9 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
 
   protected closeDetails(): void {
     this.selectedBudget.set(null);
+    this.progressRequestBudgetId = null;
+    this.progress.set(null);
+    this.progressError.set(null);
     this.cancelBudgetEdit();
     this.cancelLineEdit();
     this.detailError.set(null);
@@ -194,6 +223,7 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
           this.resetCreateForm();
           this.notifications.show(`${budget.name} was created.`, 'success');
           this.selectedBudget.set(budget);
+          this.loadProgress(budget.id);
           this.load();
         },
         error: (error: AppHttpError) => {
@@ -239,6 +269,7 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
         next: (updated) => {
           this.notifications.show(`${updated.name} was updated.`, 'success');
           this.selectedBudget.set(updated);
+          this.loadProgress(updated.id);
           this.cancelBudgetEdit();
           this.load();
         },
@@ -303,6 +334,7 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
             'success',
           );
           this.selectedBudget.set(updated);
+          this.loadProgress(updated.id);
           this.cancelLineEdit();
           this.load();
         },
@@ -353,6 +385,89 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
       year: 'numeric',
       timeZone: 'UTC',
     }).format(new Date(Date.UTC(year, month - 1, 1)));
+  }
+
+  protected loadProgress(budgetId = this.selectedBudget()?.id): void {
+    if (!budgetId) return;
+    this.progressRequestBudgetId = budgetId;
+    this.progressLoading.set(true);
+    this.progressError.set(null);
+    this.api
+      .progress(budgetId)
+      .pipe(
+        finalize(() => {
+          if (this.progressRequestBudgetId === budgetId) this.progressLoading.set(false);
+        }),
+      )
+      .subscribe({
+        next: (progress) => {
+          if (this.progressRequestBudgetId === budgetId) this.progress.set(progress);
+        },
+        error: (error) => {
+          if (this.progressRequestBudgetId !== budgetId) return;
+          this.progress.set(null);
+          this.progressError.set(this.errors.present(error));
+        },
+      });
+  }
+
+  protected progressStatus(
+    line: Pick<BudgetLineProgress, 'planned' | 'percentageUsed'>,
+  ): ProgressStatus {
+    if (line.planned === 0 || line.percentageUsed === null) return 'no_plan';
+    if (line.percentageUsed > 100) return 'over_budget';
+    if (line.percentageUsed === 100) return 'at_limit';
+    if (line.percentageUsed >= 80) return 'approaching';
+    return 'on_track';
+  }
+
+  protected progressStatusLabel(
+    line: Pick<BudgetLineProgress, 'planned' | 'percentageUsed'>,
+  ): string {
+    return {
+      no_plan: 'No plan',
+      on_track: 'On track',
+      approaching: 'Approaching limit',
+      at_limit: 'At limit',
+      over_budget: 'Over budget',
+    }[this.progressStatus(line)];
+  }
+
+  protected percentageLabel(value: number | null): string {
+    return value === null
+      ? 'Not available'
+      : new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value) + '% used';
+  }
+
+  protected visualPercentage(value: number | null): number {
+    return value === null ? 0 : Math.min(100, Math.max(0, value));
+  }
+
+  protected setProgressStatusFilter(value: string): void {
+    this.progressStatusFilter.set(value as ProgressStatusFilter);
+  }
+
+  protected setProgressSort(value: string): void {
+    this.progressSort.set(value as ProgressSort);
+  }
+
+  protected toggleProgressSortDirection(): void {
+    this.progressSortDirection.update((direction) => (direction === 'asc' ? 'desc' : 'asc'));
+  }
+
+  protected openDrillDown(drillDown: BudgetProgressDrillDown): void {
+    const categoryId = drillDown.categoryIds.length === 1 ? drillDown.categoryIds[0] : null;
+    void this.router.navigate(['/transactions'], {
+      queryParams: {
+        period: 'custom',
+        from: drillDown.from,
+        to: drillDown.to,
+        accountId: drillDown.accountId,
+        categoryId,
+        type: drillDown.type,
+        status: drillDown.status,
+      },
+    });
   }
 
   protected fieldError(error: AppHttpError | null, field: string): string | null {
@@ -453,6 +568,11 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
       next: (updated) => {
         this.notifications.show(message, 'success');
         this.selectedBudget.set(closesDetail ? null : updated);
+        if (closesDetail) {
+          this.progress.set(null);
+        } else {
+          this.loadProgress(updated.id);
+        }
         this.load();
       },
       error: (error) => this.lifecycleError.set(this.errors.present(error)),
@@ -466,5 +586,26 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
     this.cancelBudgetEdit();
     this.cancelLineEdit();
     return true;
+  }
+
+  private compareProgressLines(left: BudgetLineProgress, right: BudgetLineProgress): number {
+    switch (this.progressSort()) {
+      case 'category':
+        return this.categoryName(left.categoryId).localeCompare(
+          this.categoryName(right.categoryId),
+        );
+      case 'planned':
+        return left.planned - right.planned;
+      case 'actual':
+        return left.actual - right.actual;
+      case 'remaining':
+        return left.remaining - right.remaining;
+      case 'percentage':
+        return (left.percentageUsed ?? -Infinity) - (right.percentageUsed ?? -Infinity);
+      case 'status':
+        return this.progressStatusLabel(left).localeCompare(this.progressStatusLabel(right));
+      default:
+        return left.position - right.position;
+    }
   }
 }

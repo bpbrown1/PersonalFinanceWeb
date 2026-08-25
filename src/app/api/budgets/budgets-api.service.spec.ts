@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { API_BASE_URL } from '../api.providers';
-import { Budget, CreateBudgetRequest } from './budget.models';
+import { Budget, BudgetProgress, CreateBudgetRequest } from './budget.models';
 import { BudgetsApiService } from './budgets-api.service';
 
 describe('BudgetsApiService', () => {
@@ -89,6 +89,16 @@ describe('BudgetsApiService', () => {
       request.flush(budgetFixture());
     }
   });
+
+  it('loads budget progress with optional server filters', () => {
+    service.progress('budget/1', { accountId: 'account-1', categoryId: 'category-1' }).subscribe();
+
+    const request = http.expectOne(
+      '/api/v1/budgets/budget%2F1/progress?accountId=account-1&categoryId=category-1',
+    );
+    expect(request.request.method).toBe('GET');
+    request.flush(progressFixture());
+  });
 });
 
 function budgetFixture(): Budget {
@@ -107,5 +117,35 @@ function budgetFixture(): Budget {
     version: 0,
     createdAt: '2026-08-24T12:00:00Z',
     updatedAt: '2026-08-24T12:00:00Z',
+  };
+}
+
+function progressFixture(): BudgetProgress {
+  const drillDown = {
+    from: '2026-09-01',
+    to: '2026-09-30',
+    accountId: null,
+    categoryIds: ['category-1'],
+    type: 'expense' as const,
+    status: 'active' as const,
+    transactionIds: ['transaction-1'],
+  };
+  return {
+    budgetId: 'budget-1',
+    ownerId: 'owner-1',
+    currency: 'USD',
+    startDate: '2026-09-01',
+    endDate: '2026-09-30',
+    accountId: null,
+    categoryId: null,
+    planned: 400,
+    budgetedActual: 250,
+    unbudgetedActual: 25,
+    totalActual: 275,
+    remaining: 125,
+    percentageUsed: 68.75,
+    lines: [],
+    unbudgeted: [],
+    drillDown,
   };
 }

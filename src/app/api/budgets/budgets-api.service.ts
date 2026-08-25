@@ -4,6 +4,8 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api.providers';
 import {
   Budget,
+  BudgetProgress,
+  BudgetProgressFilters,
   BudgetStatusFilter,
   CreateBudgetRequest,
   ReorderBudgetLinesRequest,
@@ -22,6 +24,13 @@ export class BudgetsApiService {
 
   get(id: string): Observable<Budget> {
     return this.http.get<Budget>(this.budgetUrl(id));
+  }
+
+  progress(id: string, filters: BudgetProgressFilters = {}): Observable<BudgetProgress> {
+    const params: Record<string, string> = {};
+    if (filters.accountId) params['accountId'] = filters.accountId;
+    if (filters.categoryId) params['categoryId'] = filters.categoryId;
+    return this.http.get<BudgetProgress>(this.budgetUrl(id) + '/progress', { params });
   }
 
   create(request: CreateBudgetRequest): Observable<Budget> {

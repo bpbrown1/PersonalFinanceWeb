@@ -53,3 +53,54 @@ export interface UpdateBudgetRequest {
 export interface ReorderBudgetLinesRequest {
   lineIds: string[];
 }
+
+export interface BudgetProgressDrillDown {
+  from: string;
+  to: string;
+  accountId: string | null;
+  categoryIds: string[];
+  type: 'expense';
+  status: 'active';
+  transactionIds: string[];
+}
+
+export interface BudgetLineProgress {
+  lineId: string;
+  categoryId: string;
+  position: number;
+  planned: number;
+  actual: number;
+  remaining: number;
+  percentageUsed: number | null;
+  drillDown: BudgetProgressDrillDown;
+}
+
+export interface UnbudgetedProgress {
+  categoryId: string | null;
+  actual: number;
+  drillDown: BudgetProgressDrillDown;
+}
+
+export interface BudgetProgress {
+  budgetId: string;
+  ownerId: string;
+  currency: string;
+  startDate: string;
+  endDate: string;
+  accountId: string | null;
+  categoryId: string | null;
+  planned: number;
+  budgetedActual: number;
+  unbudgetedActual: number;
+  totalActual: number;
+  remaining: number;
+  percentageUsed: number | null;
+  lines: BudgetLineProgress[];
+  unbudgeted: UnbudgetedProgress[];
+  drillDown: BudgetProgressDrillDown;
+}
+
+export interface BudgetProgressFilters {
+  accountId?: string;
+  categoryId?: string;
+}

@@ -598,7 +598,9 @@
           (change)="selectSummaryPeriod(summaryPeriodSelect.value)"
         >
           @for (option of summaryPeriodOptions; track option.value) {
-            <option [value]="option.value">{{ option.label }}</option>
+            <option [value]="option.value" [selected]="summaryPeriod() === option.value">
+              {{ option.label }}
+            </option>
           }
         </select>
       </div>
