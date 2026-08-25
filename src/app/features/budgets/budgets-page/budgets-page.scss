@@ -332,6 +332,188 @@ button:disabled {
 .detail-total strong {
   font-size: 1.3rem;
 }
+.progress-section {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-border);
+}
+.progress-section .section-heading {
+  align-items: end;
+}
+.progress-section .section-heading h3,
+.progress-table-heading h4,
+.unbudgeted-section h4 {
+  margin-bottom: 0.25rem;
+}
+.overall-progress,
+.line-progress-section,
+.unbudgeted-section {
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.9rem;
+  background: var(--color-canvas);
+}
+.overall-progress {
+  display: grid;
+  gap: 0.8rem;
+}
+.progress-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+.progress-metrics > div,
+.spending-breakdown > div {
+  display: grid;
+  gap: 0.2rem;
+}
+.progress-metrics span,
+.spending-breakdown span {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+.progress-track {
+  width: 100%;
+  height: 0.75rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-border);
+}
+.progress-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-positive);
+}
+.progress-track.compact {
+  width: 8rem;
+  height: 0.45rem;
+  margin-top: 0.3rem;
+}
+.approaching .progress-track > span {
+  background: color-mix(in srgb, var(--color-negative) 52%, var(--color-primary));
+}
+.at_limit .progress-track > span,
+.over_budget .progress-track > span {
+  background: var(--color-negative);
+}
+.no_plan .progress-track > span {
+  background: var(--color-muted);
+}
+.progress-caption,
+.spending-breakdown,
+.progress-table-heading,
+.progress-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+.progress-caption {
+  font-size: 0.8rem;
+}
+.spending-breakdown {
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--color-border);
+}
+.spending-breakdown > div {
+  flex: 1;
+}
+.negative-value {
+  color: var(--color-negative);
+}
+.line-progress-section {
+  padding: 0;
+  overflow: hidden;
+}
+.progress-table-heading {
+  padding: 1rem;
+}
+.progress-table-heading p,
+.unbudgeted-section p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}
+.progress-controls {
+  align-items: end;
+}
+.progress-controls .field {
+  min-width: 9rem;
+}
+.progress-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  border-top: 1px solid var(--color-border);
+}
+.progress-table {
+  width: 100%;
+  min-width: 66rem;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.progress-table th,
+.progress-table td {
+  padding: 0.8rem;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+}
+.progress-table thead {
+  color: var(--color-muted);
+  background: var(--color-surface);
+}
+.progress-status {
+  display: inline-flex;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  color: var(--color-positive);
+  background: var(--color-positive-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.approaching .progress-status {
+  color: color-mix(in srgb, var(--color-negative) 68%, var(--color-text));
+  background: color-mix(in srgb, var(--color-negative-soft) 58%, var(--color-primary-soft));
+}
+.at_limit .progress-status,
+.over_budget .progress-status {
+  color: var(--color-negative);
+  background: var(--color-negative-soft);
+}
+.no_plan .progress-status {
+  color: var(--color-muted);
+  background: var(--color-surface);
+}
+.unbudgeted-section {
+  display: grid;
+  gap: 0.8rem;
+}
+.unbudgeted-section ul {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.unbudgeted-section li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.7rem;
+  background: var(--color-surface);
+}
+.unbudgeted-clear {
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.7rem;
+  color: var(--color-positive) !important;
+  background: var(--color-positive-soft);
+}
 .restriction-note,
 .lines-empty {
   margin-top: 1rem;
@@ -437,6 +619,20 @@ form footer {
     width: max-content;
     max-width: 100%;
   }
+  .progress-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .progress-table-heading,
+  .spending-breakdown {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .progress-controls {
+    width: 100%;
+  }
+  .progress-controls .field {
+    flex: 1;
+  }
   .budget-fields,
   .edit-budget-form,
   .line-form {
@@ -491,6 +687,23 @@ form footer {
   }
   .budget-card {
     grid-template-columns: 1fr;
+  }
+  .progress-metrics {
+    grid-template-columns: 1fr;
+  }
+  .progress-controls {
+    display: grid;
+    grid-template-columns: 1fr auto;
+  }
+  .progress-controls .field:first-child {
+    grid-column: 1 / -1;
+  }
+  .unbudgeted-section li {
+    grid-template-columns: 1fr auto;
+  }
+  .unbudgeted-section li .text-button {
+    grid-column: 1 / -1;
+    justify-self: start;
   }
   .period,
   .line-count,

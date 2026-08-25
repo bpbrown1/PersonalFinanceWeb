@@ -4,7 +4,7 @@
     <h1>Budgets</h1>
     <p>Create monthly category plans and keep every planned dollar visible.</p>
   </div>
-  <span class="planning-note">Actual spending progress arrives with US-049</span>
+  <span class="planning-note">Live progress from posted expenses</span>
 </header>
 
 @if (filter() === 'active') {
@@ -220,6 +220,238 @@
       </div>
       <button type="button" class="text-button close-button" (click)="closeDetails()">Close</button>
     </header>
+
+    <section class="progress-section" aria-labelledby="budget-progress-heading">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Plan versus actual</p>
+          <h3 id="budget-progress-heading">Budget progress</h3>
+          <p>
+            Posted expenses from {{ budget.startDate | date: 'mediumDate' }} through
+            {{ budget.endDate | date: 'mediumDate' }}.
+          </p>
+        </div>
+        <button
+          type="button"
+          class="secondary-button"
+          [disabled]="progressLoading()"
+          (click)="loadProgress(budget.id)"
+        >
+          {{ progressLoading() ? 'Refreshing…' : 'Refresh progress' }}
+        </button>
+      </div>
+
+      @if (progressLoading() && !progress()) {
+        <app-page-state
+          kind="loading"
+          title="Calculating budget progress"
+          message="Matching posted expenses to this plan."
+        />
+      } @else if (progressError()) {
+        <app-page-state
+          kind="error"
+          title="Budget progress unavailable"
+          [message]="progressError()!.userMessage"
+          actionLabel="Retry"
+          (action)="loadProgress(budget.id)"
+        />
+      } @else if (progress(); as data) {
+        <div class="overall-progress" [class]="'overall-progress ' + progressStatus(data)">
+          <div class="progress-metrics">
+            <div>
+              <span>Planned</span>
+              <strong>{{ data.planned | currency: data.currency }}</strong>
+            </div>
+            <div>
+              <span>Actual spending</span>
+              <strong>{{ data.totalActual | currency: data.currency }}</strong>
+            </div>
+            <div>
+              <span>Remaining</span>
+              <strong [class.negative-value]="data.remaining < 0">{{
+                data.remaining | currency: data.currency
+              }}</strong>
+            </div>
+            <div>
+              <span>Status</span>
+              <strong>{{ progressStatusLabel(data) }}</strong>
+            </div>
+          </div>
+          <div
+            class="progress-track"
+            role="progressbar"
+            aria-label="Overall budget used"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            [attr.aria-valuenow]="visualPercentage(data.percentageUsed)"
+            [attr.aria-valuetext]="percentageLabel(data.percentageUsed)"
+          >
+            <span [style.width.%]="visualPercentage(data.percentageUsed)"></span>
+          </div>
+          <div class="progress-caption">
+            <strong>{{ percentageLabel(data.percentageUsed) }}</strong>
+            <span>{{ progressStatusLabel(data) }}</span>
+          </div>
+          <div class="spending-breakdown">
+            <div>
+              <span>Matched to budget lines</span>
+              <strong>{{ data.budgetedActual | currency: data.currency }}</strong>
+            </div>
+            <div>
+              <span>Unbudgeted spending</span>
+              <strong [class.negative-value]="data.unbudgetedActual > 0">{{
+                data.unbudgetedActual | currency: data.currency
+              }}</strong>
+            </div>
+            <button type="button" class="text-button" (click)="openDrillDown(data.drillDown)">
+              Review period activity
+            </button>
+          </div>
+        </div>
+
+        <section class="line-progress-section" aria-labelledby="line-progress-heading">
+          <div class="progress-table-heading">
+            <div>
+              <h4 id="line-progress-heading">Category progress</h4>
+              <p>Compare exact values or narrow the list by health.</p>
+            </div>
+            <div class="progress-controls">
+              <div class="field">
+                <label for="progress-status-filter">Status</label>
+                <select
+                  #progressStatusSelect
+                  id="progress-status-filter"
+                  [value]="progressStatusFilter()"
+                  (change)="setProgressStatusFilter(progressStatusSelect.value)"
+                >
+                  <option value="all">All statuses</option>
+                  <option value="on_track">On track</option>
+                  <option value="approaching">Approaching limit</option>
+                  <option value="at_limit">At limit</option>
+                  <option value="over_budget">Over budget</option>
+                  <option value="no_plan">No plan</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="progress-sort">Sort by</label>
+                <select
+                  #progressSortSelect
+                  id="progress-sort"
+                  [value]="progressSort()"
+                  (change)="setProgressSort(progressSortSelect.value)"
+                >
+                  <option value="position">Plan order</option>
+                  <option value="category">Category</option>
+                  <option value="planned">Planned</option>
+                  <option value="actual">Actual</option>
+                  <option value="remaining">Remaining</option>
+                  <option value="percentage">Percentage used</option>
+                  <option value="status">Status</option>
+                </select>
+              </div>
+              <button
+                type="button"
+                class="icon-button sort-direction"
+                [attr.aria-label]="
+                  progressSortDirection() === 'asc'
+                    ? 'Sort category progress descending'
+                    : 'Sort category progress ascending'
+                "
+                (click)="toggleProgressSortDirection()"
+              >
+                {{ progressSortDirection() === 'asc' ? '↑' : '↓' }}
+              </button>
+            </div>
+          </div>
+
+          @if (data.lines.length === 0) {
+            <p class="lines-empty">No active category targets are available for progress.</p>
+          } @else if (visibleProgressLines().length === 0) {
+            <p class="lines-empty">No category targets match this status filter.</p>
+          } @else {
+            <div class="progress-table-wrap">
+              <table class="progress-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Category</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Planned</th>
+                    <th scope="col">Actual</th>
+                    <th scope="col">Remaining</th>
+                    <th scope="col">Used</th>
+                    <th scope="col">Activity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (line of visibleProgressLines(); track line.lineId) {
+                    <tr [class]="progressStatus(line)">
+                      <th scope="row">{{ categoryName(line.categoryId) }}</th>
+                      <td>
+                        <span class="progress-status">{{ progressStatusLabel(line) }}</span>
+                      </td>
+                      <td>{{ line.planned | currency: data.currency }}</td>
+                      <td>{{ line.actual | currency: data.currency }}</td>
+                      <td [class.negative-value]="line.remaining < 0">
+                        {{ line.remaining | currency: data.currency }}
+                      </td>
+                      <td class="used-cell">
+                        <span>{{ percentageLabel(line.percentageUsed) }}</span>
+                        <div
+                          class="progress-track compact"
+                          role="progressbar"
+                          [attr.aria-label]="categoryName(line.categoryId) + ' budget used'"
+                          aria-valuemin="0"
+                          aria-valuemax="100"
+                          [attr.aria-valuenow]="visualPercentage(line.percentageUsed)"
+                          [attr.aria-valuetext]="percentageLabel(line.percentageUsed)"
+                        >
+                          <span [style.width.%]="visualPercentage(line.percentageUsed)"></span>
+                        </div>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          class="text-button table-action"
+                          (click)="openDrillDown(line.drillDown)"
+                        >
+                          View activity
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </section>
+
+        <section class="unbudgeted-section" aria-labelledby="unbudgeted-heading">
+          <div>
+            <h4 id="unbudgeted-heading">Unbudgeted spending</h4>
+            <p>Posted expenses that did not match an active budget line.</p>
+          </div>
+          @if (data.unbudgeted.length === 0) {
+            <p class="unbudgeted-clear">
+              <strong>Nothing unbudgeted.</strong> Every posted expense matched this plan.
+            </p>
+          } @else {
+            <ul>
+              @for (item of data.unbudgeted; track item.categoryId ?? 'uncategorized') {
+                <li>
+                  <span>{{
+                    item.categoryId ? categoryName(item.categoryId) : 'Uncategorized'
+                  }}</span>
+                  <strong>{{ item.actual | currency: data.currency }}</strong>
+                  <button type="button" class="text-button" (click)="openDrillDown(item.drillDown)">
+                    View activity
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      }
+    </section>
 
     @if (budget.status === 'archived') {
       <div class="restriction-note" role="note">

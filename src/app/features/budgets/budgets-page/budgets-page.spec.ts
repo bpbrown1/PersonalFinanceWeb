@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
-import { Budget } from '../../../api/budgets/budget.models';
+import { Router } from '@angular/router';
+import { Subject, of } from 'rxjs';
+import { Budget, BudgetProgress } from '../../../api/budgets/budget.models';
 import { BudgetsApiService } from '../../../api/budgets/budgets-api.service';
 import { CategoriesApiService } from '../../../api/categories/categories-api.service';
 import { TransactionCategory } from '../../../api/categories/category.models';
@@ -12,6 +13,7 @@ describe('BudgetsPage', () => {
   let api: Record<
     | 'list'
     | 'get'
+    | 'progress'
     | 'create'
     | 'update'
     | 'archive'
@@ -25,11 +27,13 @@ describe('BudgetsPage', () => {
   >;
   let categoriesApi: { list: ReturnType<typeof vi.fn> };
   let notifications: { show: ReturnType<typeof vi.fn> };
+  let router: { navigate: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     api = {
       list: vi.fn(() => of([budgetFixture()])),
       get: vi.fn(() => of(budgetFixture())),
+      progress: vi.fn(() => of(progressFixture())),
       create: vi.fn(() => of(budgetFixture({ name: 'September plan' }))),
       update: vi.fn(() => of(budgetFixture({ name: 'Updated plan' }))),
       archive: vi.fn(() => of(budgetFixture({ status: 'archived' }))),
@@ -46,6 +50,7 @@ describe('BudgetsPage', () => {
       ),
     };
     notifications = { show: vi.fn() };
+    router = { navigate: vi.fn(() => Promise.resolve(true)) };
     await TestBed.configureTestingModule({
       imports: [BudgetsPage],
       providers: [
@@ -53,21 +58,20 @@ describe('BudgetsPage', () => {
         { provide: CategoriesApiService, useValue: categoriesApi },
         { provide: NotificationService, useValue: notifications },
         { provide: ApiErrorPresenter, useValue: { present: vi.fn((error) => error) } },
+        { provide: Router, useValue: router },
       ],
     }).compileComponents();
   });
 
   afterEach(() => vi.restoreAllMocks());
 
-  it('loads active budgets with all categories and planned-only messaging', () => {
+  it('loads active budgets with all categories and live-progress messaging', () => {
     const fixture = TestBed.createComponent(BudgetsPage);
     fixture.detectChanges();
     expect(api.list).toHaveBeenCalledWith('active');
     expect(categoriesApi.list).toHaveBeenCalledWith('all');
     expect(fixture.nativeElement.textContent).toContain('September essentials');
-    expect(fixture.nativeElement.textContent).toContain(
-      'Actual spending progress arrives with US-049',
-    );
+    expect(fixture.nativeElement.textContent).toContain('Live progress from posted expenses');
   });
 
   it('creates a monthly budget with normalized currency and ordered initial lines', () => {
@@ -128,8 +132,80 @@ describe('BudgetsPage', () => {
     component.selectBudget(budget);
     component.moveLine(budget, 0, 1);
     expect(api.get).toHaveBeenCalledWith('budget-1');
+    expect(api.progress).toHaveBeenCalledWith('budget-1');
     expect(api.reorderLines).toHaveBeenCalledWith('budget-1', {
       lineIds: ['line-2', 'line-1'],
+    });
+  });
+
+  it('renders overall, line-item, and unbudgeted progress with text statuses', () => {
+    const fixture = TestBed.createComponent(BudgetsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+
+    component.selectBudget(budgetFixture());
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('Budget progress');
+    expect(text).toContain('Actual spending');
+    expect(text).toContain('Over budget');
+    expect(text).toContain('Approaching limit');
+    expect(text).toContain('Unbudgeted spending');
+    expect(text).toContain('Uncategorized');
+  });
+
+  it('filters and sorts progress lines without changing server totals', () => {
+    const fixture = TestBed.createComponent(BudgetsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+    component.selectBudget(budgetFixture());
+
+    component.setProgressStatusFilter('over_budget');
+    component.setProgressSort('actual');
+    component.progressSortDirection.set('desc');
+
+    expect(component.visibleProgressLines().map((line: { lineId: string }) => line.lineId)).toEqual(
+      ['line-2'],
+    );
+    expect(component.progress().totalActual).toBe(550);
+  });
+
+  it('ignores a stale progress response after another budget is selected', () => {
+    const first = new Subject<BudgetProgress>();
+    const second = new Subject<BudgetProgress>();
+    api.progress.mockReturnValueOnce(first).mockReturnValueOnce(second);
+    const fixture = TestBed.createComponent(BudgetsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+
+    component.selectBudget(budgetFixture({ id: 'budget-1' }));
+    component.selectBudget(budgetFixture({ id: 'budget-2' }));
+    first.next(progressFixture());
+    expect(component.progress()).toBeNull();
+
+    second.next({ ...progressFixture(), budgetId: 'budget-2' });
+    expect(component.progress().budgetId).toBe('budget-2');
+  });
+
+  it('opens compatible transaction filters and omits a misleading hierarchy category', () => {
+    const fixture = TestBed.createComponent(BudgetsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+    const drillDown = progressFixture().lines[0].drillDown;
+
+    component.openDrillDown(drillDown);
+
+    expect(router.navigate).toHaveBeenCalledWith(['/transactions'], {
+      queryParams: {
+        period: 'custom',
+        from: '2026-09-01',
+        to: '2026-09-30',
+        accountId: null,
+        categoryId: null,
+        type: 'expense',
+        status: 'active',
+      },
     });
   });
 
@@ -183,6 +259,69 @@ function budgetFixture(overrides: Partial<Budget> = {}): Budget {
     createdAt: '2026-08-24T12:00:00Z',
     updatedAt: '2026-08-24T12:00:00Z',
     ...overrides,
+  };
+}
+
+function progressFixture(): BudgetProgress {
+  const drillDown = (
+    categoryIds: string[],
+    transactionIds: string[],
+  ): BudgetProgress['drillDown'] => ({
+    from: '2026-09-01',
+    to: '2026-09-30',
+    accountId: null,
+    categoryIds,
+    type: 'expense',
+    status: 'active',
+    transactionIds,
+  });
+  return {
+    budgetId: 'budget-1',
+    ownerId: 'owner-1',
+    currency: 'USD',
+    startDate: '2026-09-01',
+    endDate: '2026-09-30',
+    accountId: null,
+    categoryId: null,
+    planned: 525.5,
+    budgetedActual: 500,
+    unbudgetedActual: 50,
+    totalActual: 550,
+    remaining: -24.5,
+    percentageUsed: 104.66,
+    lines: [
+      {
+        lineId: 'line-1',
+        categoryId: 'category-1',
+        position: 0,
+        planned: 400,
+        actual: 340,
+        remaining: 60,
+        percentageUsed: 85,
+        drillDown: drillDown(['category-1', 'category-child'], ['transaction-1']),
+      },
+      {
+        lineId: 'line-2',
+        categoryId: 'category-2',
+        position: 1,
+        planned: 125.5,
+        actual: 160,
+        remaining: -34.5,
+        percentageUsed: 127.49,
+        drillDown: drillDown(['category-2'], ['transaction-2']),
+      },
+    ],
+    unbudgeted: [
+      {
+        categoryId: null,
+        actual: 50,
+        drillDown: drillDown([], ['transaction-3']),
+      },
+    ],
+    drillDown: drillDown(
+      ['category-1', 'category-child', 'category-2'],
+      ['transaction-1', 'transaction-2', 'transaction-3'],
+    ),
   };
 }
 

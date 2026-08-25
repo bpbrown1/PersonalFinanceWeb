@@ -72,7 +72,7 @@ describe('TransactionsPage', () => {
         { provide: CategoriesApiService, useValue: categoriesApi },
         { provide: NotificationService, useValue: notifications },
         { provide: ApiErrorPresenter, useValue: presenter },
-        provideRouter([]),
+        provideRouter([{ path: 'transactions', component: TransactionsPage }]),
       ],
     }).compileComponents();
   });
@@ -610,6 +610,25 @@ describe('TransactionsPage', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Ledger filter');
     expect(toolbar.querySelector('nav[aria-label="Transaction status"]')).not.toBeNull();
     expect(toolbar.querySelector('#summary-period')).not.toBeNull();
+  });
+
+  it('shows a custom period restored from drill-down query parameters', async () => {
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl(
+      '/transactions?period=custom&from=2026-08-01&to=2026-08-31&type=expense',
+    );
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+
+    const period = fixture.nativeElement.querySelector('#summary-period') as HTMLSelectElement;
+    expect(period.value).toBe('custom');
+    expect(transactionsApi.search).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: '2026-08-01',
+        to: '2026-08-31',
+        type: 'expense',
+      }),
+    );
   });
 
   it('combines advanced filters, resets paging, and reflects state in the URL', async () => {
