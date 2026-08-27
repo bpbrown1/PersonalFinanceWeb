@@ -9,11 +9,12 @@ import {
   signal,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { debounceTime, distinctUntilChanged, finalize, forkJoin, Subject } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AccountsApiService } from '../../../api/accounts/accounts-api.service';
 import { FinancialAccount } from '../../../api/accounts/account.models';
+import { BudgetsApiService } from '../../../api/budgets/budgets-api.service';
 import { CategoriesApiService } from '../../../api/categories/categories-api.service';
 import { TransactionCategory } from '../../../api/categories/category.models';
 import { ApiErrorPresenter } from '../../../api/errors/api-error-presenter.service';
@@ -44,12 +45,13 @@ type CreateMode = CashFlowTransactionType | 'transfer';
 
 @Component({
   selector: 'app-transactions-page',
-  imports: [ReactiveFormsModule, CurrencyPipe, DatePipe, PageState],
+  imports: [ReactiveFormsModule, CurrencyPipe, DatePipe, RouterLink, PageState],
   templateUrl: './transactions-page.html',
   styleUrl: './transactions-page.scss',
 })
 export class TransactionsPage implements OnInit, HasPendingChanges {
   private readonly transactionsApi = inject(TransactionsApiService);
+  private readonly budgetsApi = inject(BudgetsApiService);
   private readonly transfersApi = inject(TransfersApiService);
   private readonly accountsApi = inject(AccountsApiService);
   private readonly categoriesApi = inject(CategoriesApiService);
@@ -62,6 +64,7 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
   private readonly searchTextChanges = new Subject<string>();
 
   protected readonly transactionPage = signal<TransactionPage>(emptyTransactionPage());
+  protected readonly budgetProgressPath = signal<string | null>(null);
   protected readonly transactions = computed(() => this.transactionPage().items);
   protected readonly transfers = signal<FinancialTransfer[]>([]);
   protected readonly accounts = signal<FinancialAccount[]>([]);
@@ -197,7 +200,7 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
     this.loadError.set(null);
     this.lifecycleError.set(null);
     forkJoin({
-      transactions: this.transactionsApi.search(this.searchCriteria()),
+      transactions: this.transactionPageRequest(),
       transfers: this.transfersApi.list('all'),
       accounts: this.accountsApi.list('all'),
       categories: this.categoriesApi.list('all'),
@@ -524,6 +527,12 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
   }
 
   protected loadSummary(): void {
+    if (this.budgetProgressPath()) {
+      this.summaries.set([]);
+      this.summaryError.set(null);
+      this.summaryLoading.set(false);
+      return;
+    }
     if (!this.summaryRangeValid()) {
       this.summaries.set([]);
       this.summaryError.set(null);
@@ -1028,8 +1037,7 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
   private loadTransactions(): void {
     this.loading.set(true);
     this.loadError.set(null);
-    this.transactionsApi
-      .search(this.searchCriteria())
+    this.transactionPageRequest()
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (page) => this.transactionPage.set(page),
@@ -1056,6 +1064,18 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
     };
   }
 
+  private transactionPageRequest() {
+    const path = this.budgetProgressPath();
+    return path
+      ? this.budgetsApi.progressTransactions(path, {
+          page: this.searchPage(),
+          size: this.searchSize(),
+          sort: this.searchSort(),
+          direction: this.searchDirection(),
+        })
+      : this.transactionsApi.search(this.searchCriteria());
+  }
+
   private optionalPositiveNumber(value: string): number | undefined {
     if (!value) return undefined;
     const number = Number(value);
@@ -1064,6 +1084,7 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
 
   private restoreSearchStateFromUrl(): void {
     const params = this.route.snapshot.queryParamMap;
+    this.budgetProgressPath.set(params.get('budgetProgressPath'));
     const status = params.get('status');
     if (status === 'active' || status === 'deleted') this.filter.set(status);
     const period = params.get('period');
@@ -1111,6 +1132,7 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
       size: this.searchSize() === 25 ? null : this.searchSize(),
       sort: this.searchSort() === 'date' ? null : this.searchSort(),
       direction: this.searchDirection() === 'desc' ? null : this.searchDirection(),
+      budgetProgressPath: this.budgetProgressPath(),
     };
     void this.router.navigate([], {
       relativeTo: this.route,

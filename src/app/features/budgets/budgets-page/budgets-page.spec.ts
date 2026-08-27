@@ -188,7 +188,7 @@ describe('BudgetsPage', () => {
     expect(component.progress().budgetId).toBe('budget-2');
   });
 
-  it('opens compatible transaction filters and omits a misleading hierarchy category', () => {
+  it('opens the exact paginated transaction drill-down supplied by the budget API', () => {
     const fixture = TestBed.createComponent(BudgetsPage);
     fixture.detectChanges();
     const component = fixture.componentInstance as any;
@@ -198,13 +198,7 @@ describe('BudgetsPage', () => {
 
     expect(router.navigate).toHaveBeenCalledWith(['/transactions'], {
       queryParams: {
-        period: 'custom',
-        from: '2026-09-01',
-        to: '2026-09-30',
-        accountId: null,
-        categoryId: null,
-        type: 'expense',
-        status: 'active',
+        budgetProgressPath: drillDown.transactionsPath,
       },
     });
   });
@@ -274,6 +268,7 @@ function progressFixture(): BudgetProgress {
     type: 'expense',
     status: 'active',
     transactionIds,
+    transactionsPath: '/api/v1/budgets/budget-1/progress/transactions?scope=overall',
   });
   return {
     budgetId: 'budget-1',

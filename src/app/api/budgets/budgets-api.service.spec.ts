@@ -99,6 +99,49 @@ describe('BudgetsApiService', () => {
     expect(request.request.method).toBe('GET');
     request.flush(progressFixture());
   });
+
+  it('pages through the exact transaction path supplied by budget progress', () => {
+    service
+      .progressTransactions(
+        '/api/v1/budgets/budget-1/progress/transactions?scope=line&lineId=line-1',
+        {
+          page: 1,
+          size: 10,
+          sort: 'amount',
+          direction: 'asc',
+        },
+      )
+      .subscribe();
+
+    const request = http.expectOne(
+      '/api/v1/budgets/budget-1/progress/transactions?scope=line&lineId=line-1&page=1&size=10&sort=amount&direction=asc',
+    );
+    expect(request.request.method).toBe('GET');
+    request.flush({
+      items: [],
+      page: 1,
+      size: 10,
+      totalElements: 0,
+      totalPages: 0,
+      sortBy: 'amount',
+      sortDirection: 'asc',
+    });
+  });
+
+  it('rejects a corrupted or external budget progress path without making a request', () => {
+    let receivedError: unknown;
+    service
+      .progressTransactions('https://example.com/private', {
+        page: 0,
+        size: 25,
+        sort: 'date',
+        direction: 'desc',
+      })
+      .subscribe({ error: (error) => (receivedError = error) });
+
+    expect(receivedError).toBeInstanceOf(Error);
+    http.expectNone(() => true);
+  });
 });
 
 function budgetFixture(): Budget {
@@ -129,6 +172,7 @@ function progressFixture(): BudgetProgress {
     type: 'expense' as const,
     status: 'active' as const,
     transactionIds: ['transaction-1'],
+    transactionsPath: '/api/v1/budgets/budget-1/progress/transactions?scope=overall',
   };
   return {
     budgetId: 'budget-1',

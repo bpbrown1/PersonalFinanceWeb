@@ -3,6 +3,7 @@ import { provideRouter, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AccountsApiService } from '../../../api/accounts/accounts-api.service';
 import { FinancialAccount } from '../../../api/accounts/account.models';
+import { BudgetsApiService } from '../../../api/budgets/budgets-api.service';
 import { CategoriesApiService } from '../../../api/categories/categories-api.service';
 import { TransactionCategory } from '../../../api/categories/category.models';
 import { ApiErrorPresenter } from '../../../api/errors/api-error-presenter.service';
@@ -23,6 +24,7 @@ describe('TransactionsPage', () => {
     'search' | 'get' | 'summarize' | 'create' | 'update' | 'delete' | 'restore',
     ReturnType<typeof vi.fn>
   >;
+  let budgetsApi: { progressTransactions: ReturnType<typeof vi.fn> };
   let accountsApi: { list: ReturnType<typeof vi.fn> };
   let transfersApi: Record<
     'list' | 'get' | 'create' | 'update' | 'delete' | 'restore',
@@ -43,6 +45,9 @@ describe('TransactionsPage', () => {
         of(transactionFixture({ status: 'deleted', deletedAt: '2026-08-23T18:00:00Z' })),
       ),
       restore: vi.fn(() => of(transactionFixture())),
+    };
+    budgetsApi = {
+      progressTransactions: vi.fn(() => of(pageFixture([transactionFixture()]))),
     };
     accountsApi = { list: vi.fn(() => of([accountFixture()])) };
     transfersApi = {
@@ -67,6 +72,7 @@ describe('TransactionsPage', () => {
       imports: [TransactionsPage],
       providers: [
         { provide: TransactionsApiService, useValue: transactionsApi },
+        { provide: BudgetsApiService, useValue: budgetsApi },
         { provide: TransfersApiService, useValue: transfersApi },
         { provide: AccountsApiService, useValue: accountsApi },
         { provide: CategoriesApiService, useValue: categoriesApi },
@@ -629,6 +635,33 @@ describe('TransactionsPage', () => {
         type: 'expense',
       }),
     );
+  });
+
+  it('loads exact budget contributors and preserves paging and sorting', async () => {
+    const path = '/api/v1/budgets/budget-1/progress/transactions?scope=line&lineId=line-1';
+    const router = TestBed.inject(Router);
+    await router.navigate(['/transactions'], { queryParams: { budgetProgressPath: path } });
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+
+    expect(budgetsApi.progressTransactions).toHaveBeenCalledWith(path, {
+      page: 0,
+      size: 25,
+      sort: 'date',
+      direction: 'desc',
+    });
+    expect(transactionsApi.search).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('Exact contributing transactions');
+    expect(fixture.nativeElement.querySelector('.search-workspace')).toBeNull();
+
+    component.selectSort('amount');
+    expect(budgetsApi.progressTransactions).toHaveBeenLastCalledWith(path, {
+      page: 0,
+      size: 25,
+      sort: 'amount',
+      direction: 'desc',
+    });
   });
 
   it('combines advanced filters, resets paging, and reflects state in the URL', async () => {

@@ -456,16 +456,9 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
   }
 
   protected openDrillDown(drillDown: BudgetProgressDrillDown): void {
-    const categoryId = drillDown.categoryIds.length === 1 ? drillDown.categoryIds[0] : null;
     void this.router.navigate(['/transactions'], {
       queryParams: {
-        period: 'custom',
-        from: drillDown.from,
-        to: drillDown.to,
-        accountId: drillDown.accountId,
-        categoryId,
-        type: drillDown.type,
-        status: drillDown.status,
+        budgetProgressPath: drillDown.transactionsPath,
       },
     });
   }

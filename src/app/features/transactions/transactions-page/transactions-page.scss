@@ -671,3 +671,24 @@ dd {
     margin-top: 0;
   }
 }
+.budget-drill-down-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-block: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--color-border);
+  border-left: 0.3rem solid var(--color-accent);
+  border-radius: 1rem;
+  background: var(--color-surface);
+}
+
+.budget-drill-down-context h2,
+.budget-drill-down-context p {
+  margin: 0;
+}
+
+.budget-drill-down-context .eyebrow {
+  margin-bottom: 0.35rem;
+}

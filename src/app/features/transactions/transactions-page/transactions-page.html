@@ -521,7 +521,16 @@
   </section>
 }
 
-@if (filter() === 'active') {
+@if (budgetProgressPath()) {
+  <section class="budget-drill-down-context" aria-labelledby="budget-drill-down-heading">
+    <div>
+      <p class="eyebrow">Budget reconciliation</p>
+      <h2 id="budget-drill-down-heading">Exact contributing transactions</h2>
+      <p>This list includes only the ledger activity represented by the selected budget total.</p>
+    </div>
+    <a class="secondary-button" routerLink="/budgets">Back to budgets</a>
+  </section>
+} @else if (filter() === 'active') {
   @if (summaryLoading()) {
     <p class="summary-empty" role="status">
       Calculating {{ summaryPeriodLabel().toLowerCase() }} totals…
@@ -568,188 +577,190 @@
   }
 }
 
-<section class="ledger-toolbar" aria-label="Ledger controls">
-  <nav class="filters" aria-label="Transaction status">
-    <button
-      type="button"
-      [class.selected]="filter() === 'active'"
-      [attr.aria-pressed]="filter() === 'active'"
-      (click)="selectFilter('active')"
-    >
-      Active
-    </button>
-    <button
-      type="button"
-      [class.selected]="filter() === 'deleted'"
-      [attr.aria-pressed]="filter() === 'deleted'"
-      (click)="selectFilter('deleted')"
-    >
-      Deleted
-    </button>
-  </nav>
-  <div class="period-filter">
-    <div class="summary-controls">
-      <div class="field">
-        <label for="summary-period">Period</label>
-        <select
-          #summaryPeriodSelect
-          id="summary-period"
-          [value]="summaryPeriod()"
-          (change)="selectSummaryPeriod(summaryPeriodSelect.value)"
-        >
-          @for (option of summaryPeriodOptions; track option.value) {
-            <option [value]="option.value" [selected]="summaryPeriod() === option.value">
-              {{ option.label }}
-            </option>
-          }
-        </select>
+@if (!budgetProgressPath()) {
+  <section class="ledger-toolbar" aria-label="Ledger controls">
+    <nav class="filters" aria-label="Transaction status">
+      <button
+        type="button"
+        [class.selected]="filter() === 'active'"
+        [attr.aria-pressed]="filter() === 'active'"
+        (click)="selectFilter('active')"
+      >
+        Active
+      </button>
+      <button
+        type="button"
+        [class.selected]="filter() === 'deleted'"
+        [attr.aria-pressed]="filter() === 'deleted'"
+        (click)="selectFilter('deleted')"
+      >
+        Deleted
+      </button>
+    </nav>
+    <div class="period-filter">
+      <div class="summary-controls">
+        <div class="field">
+          <label for="summary-period">Period</label>
+          <select
+            #summaryPeriodSelect
+            id="summary-period"
+            [value]="summaryPeriod()"
+            (change)="selectSummaryPeriod(summaryPeriodSelect.value)"
+          >
+            @for (option of summaryPeriodOptions; track option.value) {
+              <option [value]="option.value" [selected]="summaryPeriod() === option.value">
+                {{ option.label }}
+              </option>
+            }
+          </select>
+        </div>
+        @if (summaryPeriod() === 'custom') {
+          <div class="field">
+            <label for="summary-from">From</label>
+            <input
+              #summaryFrom
+              id="summary-from"
+              type="date"
+              [value]="customSummaryFrom()"
+              [max]="customSummaryTo()"
+              (change)="setCustomSummaryFrom(summaryFrom.value)"
+            />
+          </div>
+          <div class="field">
+            <label for="summary-to">To</label>
+            <input
+              #summaryTo
+              id="summary-to"
+              type="date"
+              [value]="customSummaryTo()"
+              [min]="customSummaryFrom()"
+              [max]="today"
+              (change)="setCustomSummaryTo(summaryTo.value)"
+            />
+          </div>
+        }
       </div>
-      @if (summaryPeriod() === 'custom') {
-        <div class="field">
-          <label for="summary-from">From</label>
-          <input
-            #summaryFrom
-            id="summary-from"
-            type="date"
-            [value]="customSummaryFrom()"
-            [max]="customSummaryTo()"
-            (change)="setCustomSummaryFrom(summaryFrom.value)"
-          />
-        </div>
-        <div class="field">
-          <label for="summary-to">To</label>
-          <input
-            #summaryTo
-            id="summary-to"
-            type="date"
-            [value]="customSummaryTo()"
-            [min]="customSummaryFrom()"
-            [max]="today"
-            (change)="setCustomSummaryTo(summaryTo.value)"
-          />
-        </div>
+      @if (!summaryRangeValid()) {
+        <p class="field-error" role="alert">The start date must be on or before the end date.</p>
       }
     </div>
-    @if (!summaryRangeValid()) {
-      <p class="field-error" role="alert">The start date must be on or before the end date.</p>
-    }
-  </div>
-</section>
+  </section>
 
-<section class="search-workspace" aria-labelledby="search-heading">
-  <header class="search-header">
-    <div>
-      <p class="eyebrow">Transaction search</p>
-      <h2 id="search-heading">Find activity</h2>
-      <p>Search the complete ledger with filters that can be combined.</p>
-    </div>
-    <button
-      type="button"
-      class="secondary-button filter-toggle"
-      [attr.aria-expanded]="filtersExpanded()"
-      aria-controls="advanced-transaction-filters"
-      (click)="filtersExpanded.set(!filtersExpanded())"
-    >
-      Filters{{ activeSearchFilterCount() ? ' (' + activeSearchFilterCount() + ')' : '' }}
-    </button>
-  </header>
-
-  <div class="search-primary">
-    <div class="field search-text">
-      <label for="transaction-search">Search transactions</label>
-      <input
-        #transactionSearch
-        id="transaction-search"
-        type="search"
-        placeholder="Description, merchant, notes, or reference"
-        [value]="searchTextInput()"
-        (input)="setSearchText(transactionSearch.value)"
-      />
-    </div>
-    @if (activeSearchFilterCount()) {
-      <button type="button" class="text-button clear-filters" (click)="clearSearchFilters()">
-        Clear filters
+  <section class="search-workspace" aria-labelledby="search-heading">
+    <header class="search-header">
+      <div>
+        <p class="eyebrow">Transaction search</p>
+        <h2 id="search-heading">Find activity</h2>
+        <p>Search the complete ledger with filters that can be combined.</p>
+      </div>
+      <button
+        type="button"
+        class="secondary-button filter-toggle"
+        [attr.aria-expanded]="filtersExpanded()"
+        aria-controls="advanced-transaction-filters"
+        (click)="filtersExpanded.set(!filtersExpanded())"
+      >
+        Filters{{ activeSearchFilterCount() ? ' (' + activeSearchFilterCount() + ')' : '' }}
       </button>
-    }
-  </div>
+    </header>
 
-  @if (filtersExpanded()) {
-    <div id="advanced-transaction-filters" class="advanced-filters">
-      <div class="field">
-        <label for="search-account">Account</label>
-        <select
-          #searchAccount
-          id="search-account"
-          [value]="searchAccountId()"
-          (change)="setSearchAccount(searchAccount.value)"
-        >
-          <option value="" [selected]="!searchAccountId()">All accounts</option>
-          @for (account of accounts(); track account.id) {
-            <option [value]="account.id" [selected]="searchAccountId() === account.id">
-              {{ account.name }} · {{ account.currency
-              }}{{ account.status === 'archived' ? ' (archived)' : '' }}
-            </option>
-          }
-        </select>
-      </div>
-      <div class="field">
-        <label for="search-category">Category</label>
-        <select
-          #searchCategory
-          id="search-category"
-          [value]="searchCategoryId()"
-          (change)="setSearchCategory(searchCategory.value)"
-        >
-          <option value="" [selected]="!searchCategoryId()">All categories</option>
-          @for (category of categories(); track category.id) {
-            <option [value]="category.id" [selected]="searchCategoryId() === category.id">
-              {{ category.name }}{{ category.status === 'archived' ? ' (archived)' : '' }}
-            </option>
-          }
-        </select>
-      </div>
-      <div class="field">
-        <label for="search-type">Type</label>
-        <select
-          #searchTypeSelect
-          id="search-type"
-          [value]="searchType()"
-          (change)="setSearchType(searchTypeSelect.value)"
-        >
-          <option value="">All types</option>
-          <option value="income">Income</option>
-          <option value="expense">Expense</option>
-          <option value="transfer_out">Transfer out</option>
-          <option value="transfer_in">Transfer in</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="search-min-amount">Minimum amount</label>
+    <div class="search-primary">
+      <div class="field search-text">
+        <label for="transaction-search">Search transactions</label>
         <input
-          #searchMinAmountInput
-          id="search-min-amount"
-          type="number"
-          min="0"
-          step="0.01"
-          [value]="searchMinAmount()"
-          (change)="setSearchMinAmount(searchMinAmountInput.value)"
+          #transactionSearch
+          id="transaction-search"
+          type="search"
+          placeholder="Description, merchant, notes, or reference"
+          [value]="searchTextInput()"
+          (input)="setSearchText(transactionSearch.value)"
         />
       </div>
-      <div class="field">
-        <label for="search-max-amount">Maximum amount</label>
-        <input
-          #searchMaxAmountInput
-          id="search-max-amount"
-          type="number"
-          min="0"
-          step="0.01"
-          [value]="searchMaxAmount()"
-          (change)="setSearchMaxAmount(searchMaxAmountInput.value)"
-        />
-      </div>
+      @if (activeSearchFilterCount()) {
+        <button type="button" class="text-button clear-filters" (click)="clearSearchFilters()">
+          Clear filters
+        </button>
+      }
     </div>
-  }
-</section>
+
+    @if (filtersExpanded()) {
+      <div id="advanced-transaction-filters" class="advanced-filters">
+        <div class="field">
+          <label for="search-account">Account</label>
+          <select
+            #searchAccount
+            id="search-account"
+            [value]="searchAccountId()"
+            (change)="setSearchAccount(searchAccount.value)"
+          >
+            <option value="" [selected]="!searchAccountId()">All accounts</option>
+            @for (account of accounts(); track account.id) {
+              <option [value]="account.id" [selected]="searchAccountId() === account.id">
+                {{ account.name }} · {{ account.currency
+                }}{{ account.status === 'archived' ? ' (archived)' : '' }}
+              </option>
+            }
+          </select>
+        </div>
+        <div class="field">
+          <label for="search-category">Category</label>
+          <select
+            #searchCategory
+            id="search-category"
+            [value]="searchCategoryId()"
+            (change)="setSearchCategory(searchCategory.value)"
+          >
+            <option value="" [selected]="!searchCategoryId()">All categories</option>
+            @for (category of categories(); track category.id) {
+              <option [value]="category.id" [selected]="searchCategoryId() === category.id">
+                {{ category.name }}{{ category.status === 'archived' ? ' (archived)' : '' }}
+              </option>
+            }
+          </select>
+        </div>
+        <div class="field">
+          <label for="search-type">Type</label>
+          <select
+            #searchTypeSelect
+            id="search-type"
+            [value]="searchType()"
+            (change)="setSearchType(searchTypeSelect.value)"
+          >
+            <option value="">All types</option>
+            <option value="income">Income</option>
+            <option value="expense">Expense</option>
+            <option value="transfer_out">Transfer out</option>
+            <option value="transfer_in">Transfer in</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="search-min-amount">Minimum amount</label>
+          <input
+            #searchMinAmountInput
+            id="search-min-amount"
+            type="number"
+            min="0"
+            step="0.01"
+            [value]="searchMinAmount()"
+            (change)="setSearchMinAmount(searchMinAmountInput.value)"
+          />
+        </div>
+        <div class="field">
+          <label for="search-max-amount">Maximum amount</label>
+          <input
+            #searchMaxAmountInput
+            id="search-max-amount"
+            type="number"
+            min="0"
+            step="0.01"
+            [value]="searchMaxAmount()"
+            (change)="setSearchMaxAmount(searchMaxAmountInput.value)"
+          />
+        </div>
+      </div>
+    }
+  </section>
+}
 
 @if (loading()) {
   <app-page-state

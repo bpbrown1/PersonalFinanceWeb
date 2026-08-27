@@ -62,6 +62,14 @@ export interface BudgetProgressDrillDown {
   type: 'expense';
   status: 'active';
   transactionIds: string[];
+  transactionsPath: string;
+}
+
+export interface BudgetProgressTransactionPageCriteria {
+  page: number;
+  size: number;
+  sort: 'date' | 'amount';
+  direction: 'asc' | 'desc';
 }
 
 export interface BudgetLineProgress {
