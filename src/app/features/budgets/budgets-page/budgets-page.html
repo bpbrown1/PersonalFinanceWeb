@@ -1,0 +1,693 @@
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Plan before money moves</p>
+    <h1>Budgets</h1>
+    <p>Create monthly category plans and keep every planned dollar visible.</p>
+  </div>
+  <span class="planning-note">Live progress from posted expenses</span>
+</header>
+
+@if (filter() === 'active') {
+  <section class="create-panel" aria-labelledby="create-budget-heading">
+    <div class="panel-intro">
+      <span class="panel-icon" aria-hidden="true">◎</span>
+      <p class="eyebrow">New plan</p>
+      <h2 id="create-budget-heading">Create a monthly budget</h2>
+      <p>Choose a month and add as many category targets as you need.</p>
+    </div>
+    <form [formGroup]="createForm" (ngSubmit)="create()" novalidate>
+      <div class="budget-fields">
+        <div class="field name-field">
+          <label for="budget-name">Budget name <span>(required)</span></label>
+          <input id="budget-name" formControlName="name" maxlength="100" />
+          @if (createForm.controls.name.touched && createForm.controls.name.invalid) {
+            <p class="field-error">Enter a budget name.</p>
+          } @else if (fieldError(createError(), 'name')) {
+            <p class="field-error" role="alert">{{ fieldError(createError(), 'name') }}</p>
+          }
+        </div>
+        <div class="field">
+          <label for="budget-month">Month <span>(required)</span></label>
+          <input id="budget-month" type="month" formControlName="month" />
+          @if (fieldError(createError(), 'startDate') || fieldError(createError(), 'endDate')) {
+            <p class="field-error" role="alert">
+              {{ fieldError(createError(), 'startDate') || fieldError(createError(), 'endDate') }}
+            </p>
+          }
+        </div>
+        <div class="field">
+          <label for="budget-currency">Currency <span>(required)</span></label>
+          <input
+            id="budget-currency"
+            formControlName="currency"
+            maxlength="3"
+            autocapitalize="characters"
+          />
+          @if (createForm.controls.currency.touched && createForm.controls.currency.invalid) {
+            <p class="field-error">Enter a three-letter currency code.</p>
+          } @else if (fieldError(createError(), 'currency')) {
+            <p class="field-error" role="alert">{{ fieldError(createError(), 'currency') }}</p>
+          }
+        </div>
+      </div>
+
+      <fieldset class="initial-lines" formArrayName="lines">
+        <legend>Category targets <span>(optional)</span></legend>
+        <div class="lines-heading">
+          <p>Add targets now, or create the budget and add them later.</p>
+          <button type="button" class="text-button" (click)="addInitialLine()">Add category</button>
+        </div>
+        @for (line of createForm.controls.lines.controls; track line; let index = $index) {
+          <div class="initial-line" [formGroupName]="index">
+            <span class="line-number">{{ index + 1 }}</span>
+            <div class="field">
+              <label [for]="'initial-category-' + index">Category</label>
+              <select [id]="'initial-category-' + index" formControlName="categoryId">
+                <option value="">Select an expense category</option>
+                @for (category of initialCategoryOptions(index); track category.id) {
+                  <option [value]="category.id">{{ category.name }}</option>
+                }
+              </select>
+              @if (line.touched && initialLineIncomplete(index)) {
+                <p class="field-error">Choose a category and enter an amount.</p>
+              } @else if (initialLineDuplicate(index)) {
+                <p class="field-error">Each category can appear only once.</p>
+              }
+            </div>
+            <div class="field">
+              <label [for]="'initial-amount-' + index">Planned amount</label>
+              <input
+                [id]="'initial-amount-' + index"
+                type="number"
+                min="0"
+                step="0.01"
+                inputmode="decimal"
+                formControlName="plannedAmount"
+              />
+              @if (
+                line.controls.plannedAmount.touched &&
+                line.controls.plannedAmount.invalid &&
+                line.controls.plannedAmount.value !== null
+              ) {
+                <p class="field-error">Use a nonnegative amount with up to two decimals.</p>
+              }
+            </div>
+            <button
+              type="button"
+              class="remove-button"
+              [attr.aria-label]="'Remove category target ' + (index + 1)"
+              (click)="removeInitialLine(index)"
+            >
+              ×
+            </button>
+          </div>
+        }
+        @if (fieldError(createError(), 'lines')) {
+          <p class="field-error" role="alert">{{ fieldError(createError(), 'lines') }}</p>
+        }
+        <div class="planned-total" aria-live="polite">
+          <span>Planned total</span>
+          <strong>{{
+            initialPlannedTotal()
+              | currency: (createForm.controls.currency.value || 'USD').toUpperCase()
+          }}</strong>
+        </div>
+      </fieldset>
+      <div class="form-actions">
+        @if (formError(createError())) {
+          <p class="field-error" role="alert">{{ formError(createError()) }}</p>
+        }
+        <button class="primary-button" type="submit" [disabled]="mutationBusy()">
+          {{ createSubmission.busy() ? 'Creating…' : 'Create budget' }}
+        </button>
+      </div>
+    </form>
+  </section>
+}
+
+<nav class="filters" aria-label="Budget status">
+  <button
+    type="button"
+    [class.selected]="filter() === 'active'"
+    [attr.aria-pressed]="filter() === 'active'"
+    (click)="selectFilter('active')"
+  >
+    Active
+  </button>
+  <button
+    type="button"
+    [class.selected]="filter() === 'archived'"
+    [attr.aria-pressed]="filter() === 'archived'"
+    (click)="selectFilter('archived')"
+  >
+    Archived
+  </button>
+</nav>
+
+@if (loading()) {
+  <app-page-state
+    kind="loading"
+    title="Loading budgets"
+    message="Retrieving your monthly plans and category targets."
+  />
+} @else if (loadError()) {
+  <app-page-state
+    kind="error"
+    title="Budgets unavailable"
+    [message]="loadError()!.userMessage"
+    actionLabel="Retry"
+    (action)="load()"
+  />
+} @else if (budgets().length === 0) {
+  <app-page-state
+    kind="empty"
+    [title]="filter() === 'active' ? 'No active budgets yet' : 'No archived budgets'"
+    [message]="
+      filter() === 'active'
+        ? 'Create your first monthly plan above.'
+        : 'Archived plans will remain available here.'
+    "
+  />
+} @else {
+  <section class="budget-grid" [attr.aria-label]="filter() + ' budgets'">
+    @for (budget of budgets(); track budget.id) {
+      <button
+        type="button"
+        class="budget-card"
+        [class.selected]="selectedBudget()?.id === budget.id"
+        (click)="selectBudget(budget)"
+      >
+        <span class="status-pill" [class.archived]="budget.status === 'archived'">{{
+          budget.status
+        }}</span>
+        <span class="period">{{ periodLabel(budget) }}</span>
+        <strong class="budget-name">{{ budget.name }}</strong>
+        <span class="budget-total">{{ budget.totalPlanned | currency: budget.currency }}</span>
+        <span class="line-count"
+          >{{ budget.lines.length }} retained
+          {{ budget.lines.length === 1 ? 'line' : 'lines' }}</span
+        >
+      </button>
+    }
+  </section>
+}
+
+@if (detailLoading()) {
+  <app-page-state
+    kind="loading"
+    title="Loading budget details"
+    message="Retrieving the complete plan."
+  />
+} @else if (detailError()) {
+  <app-page-state
+    kind="error"
+    title="Budget details unavailable"
+    [message]="detailError()!.userMessage"
+  />
+}
+
+@if (selectedBudget(); as budget) {
+  <section class="detail-panel" aria-labelledby="budget-detail-heading">
+    <header class="detail-header">
+      <div>
+        <p class="eyebrow">{{ periodLabel(budget) }} · {{ budget.currency }}</p>
+        <h2 id="budget-detail-heading">{{ budget.name }}</h2>
+        <p>Version {{ budget.version }} · {{ budget.lines.length }} retained lines</p>
+      </div>
+      <div class="detail-total">
+        <span>Active planned total</span>
+        <strong>{{ budget.totalPlanned | currency: budget.currency }}</strong>
+      </div>
+      <button type="button" class="text-button close-button" (click)="closeDetails()">Close</button>
+    </header>
+
+    <section class="progress-section" aria-labelledby="budget-progress-heading">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Plan versus actual</p>
+          <h3 id="budget-progress-heading">Budget progress</h3>
+          <p>
+            Posted expenses from {{ budget.startDate | date: 'mediumDate' }} through
+            {{ budget.endDate | date: 'mediumDate' }}.
+          </p>
+        </div>
+        <button
+          type="button"
+          class="secondary-button"
+          [disabled]="progressLoading()"
+          (click)="loadProgress(budget.id)"
+        >
+          {{ progressLoading() ? 'Refreshing…' : 'Refresh progress' }}
+        </button>
+      </div>
+
+      @if (progressLoading() && !progress()) {
+        <app-page-state
+          kind="loading"
+          title="Calculating budget progress"
+          message="Matching posted expenses to this plan."
+        />
+      } @else if (progressError()) {
+        <app-page-state
+          kind="error"
+          title="Budget progress unavailable"
+          [message]="progressError()!.userMessage"
+          actionLabel="Retry"
+          (action)="loadProgress(budget.id)"
+        />
+      } @else if (progress(); as data) {
+        <div class="overall-progress" [class]="'overall-progress ' + progressStatus(data)">
+          <div class="progress-metrics">
+            <div>
+              <span>Planned</span>
+              <strong>{{ data.planned | currency: data.currency }}</strong>
+            </div>
+            <div>
+              <span>Actual spending</span>
+              <strong>{{ data.totalActual | currency: data.currency }}</strong>
+            </div>
+            <div>
+              <span>Remaining</span>
+              <strong [class.negative-value]="data.remaining < 0">{{
+                data.remaining | currency: data.currency
+              }}</strong>
+            </div>
+            <div>
+              <span>Status</span>
+              <strong>{{ progressStatusLabel(data) }}</strong>
+            </div>
+          </div>
+          <div
+            class="progress-track"
+            role="progressbar"
+            aria-label="Overall budget used"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            [attr.aria-valuenow]="visualPercentage(data.percentageUsed)"
+            [attr.aria-valuetext]="percentageLabel(data.percentageUsed)"
+          >
+            <span [style.width.%]="visualPercentage(data.percentageUsed)"></span>
+          </div>
+          <div class="progress-caption">
+            <strong>{{ percentageLabel(data.percentageUsed) }}</strong>
+            <span>{{ progressStatusLabel(data) }}</span>
+          </div>
+          <div class="spending-breakdown">
+            <div>
+              <span>Matched to budget lines</span>
+              <strong>{{ data.budgetedActual | currency: data.currency }}</strong>
+            </div>
+            <div>
+              <span>Unbudgeted spending</span>
+              <strong [class.negative-value]="data.unbudgetedActual > 0">{{
+                data.unbudgetedActual | currency: data.currency
+              }}</strong>
+            </div>
+            <button type="button" class="text-button" (click)="openDrillDown(data.drillDown)">
+              Review period activity
+            </button>
+          </div>
+        </div>
+
+        <section class="line-progress-section" aria-labelledby="line-progress-heading">
+          <div class="progress-table-heading">
+            <div>
+              <h4 id="line-progress-heading">Category progress</h4>
+              <p>Compare exact values or narrow the list by health.</p>
+            </div>
+            <div class="progress-controls">
+              <div class="field">
+                <label for="progress-status-filter">Status</label>
+                <select
+                  #progressStatusSelect
+                  id="progress-status-filter"
+                  [value]="progressStatusFilter()"
+                  (change)="setProgressStatusFilter(progressStatusSelect.value)"
+                >
+                  <option value="all">All statuses</option>
+                  <option value="on_track">On track</option>
+                  <option value="approaching">Approaching limit</option>
+                  <option value="at_limit">At limit</option>
+                  <option value="over_budget">Over budget</option>
+                  <option value="no_plan">No plan</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="progress-sort">Sort by</label>
+                <select
+                  #progressSortSelect
+                  id="progress-sort"
+                  [value]="progressSort()"
+                  (change)="setProgressSort(progressSortSelect.value)"
+                >
+                  <option value="position">Plan order</option>
+                  <option value="category">Category</option>
+                  <option value="planned">Planned</option>
+                  <option value="actual">Actual</option>
+                  <option value="remaining">Remaining</option>
+                  <option value="percentage">Percentage used</option>
+                  <option value="status">Status</option>
+                </select>
+              </div>
+              <button
+                type="button"
+                class="icon-button sort-direction"
+                [attr.aria-label]="
+                  progressSortDirection() === 'asc'
+                    ? 'Sort category progress descending'
+                    : 'Sort category progress ascending'
+                "
+                (click)="toggleProgressSortDirection()"
+              >
+                {{ progressSortDirection() === 'asc' ? '↑' : '↓' }}
+              </button>
+            </div>
+          </div>
+
+          @if (data.lines.length === 0) {
+            <p class="lines-empty">No active category targets are available for progress.</p>
+          } @else if (visibleProgressLines().length === 0) {
+            <p class="lines-empty">No category targets match this status filter.</p>
+          } @else {
+            <div class="progress-table-wrap">
+              <table class="progress-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Category</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Planned</th>
+                    <th scope="col">Actual</th>
+                    <th scope="col">Remaining</th>
+                    <th scope="col">Used</th>
+                    <th scope="col">Activity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (line of visibleProgressLines(); track line.lineId) {
+                    <tr [class]="progressStatus(line)">
+                      <th scope="row">{{ categoryName(line.categoryId) }}</th>
+                      <td>
+                        <span class="progress-status">{{ progressStatusLabel(line) }}</span>
+                      </td>
+                      <td>{{ line.planned | currency: data.currency }}</td>
+                      <td>{{ line.actual | currency: data.currency }}</td>
+                      <td [class.negative-value]="line.remaining < 0">
+                        {{ line.remaining | currency: data.currency }}
+                      </td>
+                      <td class="used-cell">
+                        <span>{{ percentageLabel(line.percentageUsed) }}</span>
+                        <div
+                          class="progress-track compact"
+                          role="progressbar"
+                          [attr.aria-label]="categoryName(line.categoryId) + ' budget used'"
+                          aria-valuemin="0"
+                          aria-valuemax="100"
+                          [attr.aria-valuenow]="visualPercentage(line.percentageUsed)"
+                          [attr.aria-valuetext]="percentageLabel(line.percentageUsed)"
+                        >
+                          <span [style.width.%]="visualPercentage(line.percentageUsed)"></span>
+                        </div>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          class="text-button table-action"
+                          (click)="openDrillDown(line.drillDown)"
+                        >
+                          View activity
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </section>
+
+        <section class="unbudgeted-section" aria-labelledby="unbudgeted-heading">
+          <div>
+            <h4 id="unbudgeted-heading">Unbudgeted spending</h4>
+            <p>Posted expenses that did not match an active budget line.</p>
+          </div>
+          @if (data.unbudgeted.length === 0) {
+            <p class="unbudgeted-clear">
+              <strong>Nothing unbudgeted.</strong> Every posted expense matched this plan.
+            </p>
+          } @else {
+            <ul>
+              @for (item of data.unbudgeted; track item.categoryId ?? 'uncategorized') {
+                <li>
+                  <span>{{
+                    item.categoryId ? categoryName(item.categoryId) : 'Uncategorized'
+                  }}</span>
+                  <strong>{{ item.actual | currency: data.currency }}</strong>
+                  <button type="button" class="text-button" (click)="openDrillDown(item.drillDown)">
+                    View activity
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      }
+    </section>
+
+    @if (budget.status === 'archived') {
+      <div class="restriction-note" role="note">
+        <strong>This budget is archived.</strong>
+        Restore it before changing metadata or category targets. Its historical definition remains
+        visible.
+      </div>
+    }
+
+    @if (editingBudget()) {
+      <form
+        class="edit-budget-form"
+        [formGroup]="editForm"
+        (ngSubmit)="saveBudget(budget)"
+        novalidate
+      >
+        <div class="field">
+          <label for="edit-budget-name">Budget name</label>
+          <input id="edit-budget-name" formControlName="name" maxlength="100" />
+          @if (fieldError(editError(), 'name')) {
+            <p class="field-error">{{ fieldError(editError(), 'name') }}</p>
+          }
+        </div>
+        <div class="field">
+          <label for="edit-budget-month">Month</label>
+          <input id="edit-budget-month" type="month" formControlName="month" />
+          @if (fieldError(editError(), 'startDate') || fieldError(editError(), 'endDate')) {
+            <p class="field-error">
+              {{ fieldError(editError(), 'startDate') || fieldError(editError(), 'endDate') }}
+            </p>
+          }
+        </div>
+        <div class="field">
+          <label for="edit-budget-currency">Currency</label>
+          <input id="edit-budget-currency" formControlName="currency" maxlength="3" />
+        </div>
+        @if (formError(editError())) {
+          <p class="field-error form-error" role="alert">{{ formError(editError()) }}</p>
+        }
+        <footer>
+          <button type="button" class="text-button" (click)="cancelBudgetEdit()">Cancel</button>
+          <button type="submit" class="primary-button" [disabled]="mutationBusy()">
+            {{ editSubmission.busy() ? 'Saving…' : 'Save budget' }}
+          </button>
+        </footer>
+      </form>
+    } @else {
+      <div class="budget-actions">
+        @if (budget.status === 'active') {
+          <button type="button" class="secondary-button" (click)="startBudgetEdit(budget)">
+            Edit budget
+          </button>
+          <button
+            type="button"
+            class="secondary-button danger"
+            [disabled]="mutationBusy()"
+            (click)="archiveBudget(budget)"
+          >
+            Archive budget
+          </button>
+        } @else {
+          <button
+            type="button"
+            class="primary-button"
+            [disabled]="mutationBusy()"
+            (click)="restoreBudget(budget)"
+          >
+            Restore budget
+          </button>
+        }
+      </div>
+    }
+
+    <section class="lines-section" aria-labelledby="budget-lines-heading">
+      <div class="section-heading">
+        <div>
+          <h3 id="budget-lines-heading">Category targets</h3>
+          <p>Ordering is retained for future planning and reporting views.</p>
+        </div>
+        @if (budget.status === 'active' && editingLineId() === null) {
+          <button type="button" class="primary-button" (click)="startAddLine()">Add line</button>
+        }
+      </div>
+
+      @if (editingLineId() === 'new') {
+        <form class="line-form" [formGroup]="lineForm" (ngSubmit)="saveLine(budget)" novalidate>
+          <div class="field">
+            <label for="new-line-category">Category</label>
+            <select id="new-line-category" formControlName="categoryId">
+              <option value="">Select an expense category</option>
+              @for (category of availableLineCategories(budget); track category.id) {
+                <option [value]="category.id">{{ category.name }}</option>
+              }
+            </select>
+            @if (fieldError(lineError(), 'categoryId')) {
+              <p class="field-error">{{ fieldError(lineError(), 'categoryId') }}</p>
+            }
+          </div>
+          <div class="field">
+            <label for="new-line-amount">Planned amount</label>
+            <input
+              id="new-line-amount"
+              type="number"
+              min="0"
+              step="0.01"
+              formControlName="plannedAmount"
+            />
+            @if (fieldError(lineError(), 'plannedAmount')) {
+              <p class="field-error">{{ fieldError(lineError(), 'plannedAmount') }}</p>
+            }
+          </div>
+          <footer>
+            <button type="button" class="text-button" (click)="cancelLineEdit()">Cancel</button>
+            <button type="submit" class="primary-button" [disabled]="mutationBusy()">
+              {{ lineSubmission.busy() ? 'Adding…' : 'Add line' }}
+            </button>
+          </footer>
+          @if (formError(lineError())) {
+            <p class="field-error form-error" role="alert">{{ formError(lineError()) }}</p>
+          }
+        </form>
+      }
+
+      @if (budget.lines.length === 0) {
+        <p class="lines-empty">
+          No category targets yet. Add a line to begin allocating this plan.
+        </p>
+      } @else {
+        <ol class="budget-lines">
+          @for (line of budget.lines; track line.id; let index = $index) {
+            <li [class.archived]="line.status === 'archived'">
+              @if (editingLineId() === line.id) {
+                <form
+                  class="line-form inline"
+                  [formGroup]="lineForm"
+                  (ngSubmit)="saveLine(budget)"
+                  novalidate
+                >
+                  <div class="field">
+                    <label [for]="'edit-line-category-' + line.id">Category</label>
+                    <select [id]="'edit-line-category-' + line.id" formControlName="categoryId">
+                      @for (
+                        category of availableLineCategories(budget, line.id);
+                        track category.id
+                      ) {
+                        <option [value]="category.id">
+                          {{ category.name
+                          }}{{
+                            category.status === 'archived' ? ' (archived current category)' : ''
+                          }}
+                        </option>
+                      }
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label [for]="'edit-line-amount-' + line.id">Planned amount</label>
+                    <input
+                      [id]="'edit-line-amount-' + line.id"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      formControlName="plannedAmount"
+                    />
+                  </div>
+                  <footer>
+                    <button type="button" class="text-button" (click)="cancelLineEdit()">
+                      Cancel
+                    </button>
+                    <button type="submit" class="primary-button" [disabled]="mutationBusy()">
+                      Save line
+                    </button>
+                  </footer>
+                  @if (formError(lineError())) {
+                    <p class="field-error form-error" role="alert">{{ formError(lineError()) }}</p>
+                  }
+                </form>
+              } @else {
+                <span class="drag-position">{{ index + 1 }}</span>
+                <div class="line-copy">
+                  <strong>{{ categoryName(line.categoryId) }}</strong>
+                  <span
+                    >{{ line.status
+                    }}{{
+                      line.archivedAt ? ' · archived ' + (line.archivedAt | date: 'mediumDate') : ''
+                    }}</span
+                  >
+                </div>
+                <strong class="line-amount">{{
+                  line.plannedAmount | currency: budget.currency
+                }}</strong>
+                @if (budget.status === 'active') {
+                  <div class="line-actions">
+                    <button
+                      type="button"
+                      class="icon-button"
+                      [disabled]="index === 0 || mutationBusy()"
+                      [attr.aria-label]="'Move ' + categoryName(line.categoryId) + ' up'"
+                      (click)="moveLine(budget, index, -1)"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      class="icon-button"
+                      [disabled]="index === budget.lines.length - 1 || mutationBusy()"
+                      [attr.aria-label]="'Move ' + categoryName(line.categoryId) + ' down'"
+                      (click)="moveLine(budget, index, 1)"
+                    >
+                      ↓
+                    </button>
+                    @if (line.status === 'active') {
+                      <button type="button" class="text-button" (click)="startLineEdit(line)">
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        class="text-button danger"
+                        (click)="archiveLine(budget, line)"
+                      >
+                        Archive
+                      </button>
+                    } @else {
+                      <button type="button" class="text-button" (click)="restoreLine(budget, line)">
+                        Restore
+                      </button>
+                    }
+                  </div>
+                }
+              }
+            </li>
+          }
+        </ol>
+      }
+      @if (lifecycleError()) {
+        <p class="field-error" role="alert">{{ lifecycleError()!.userMessage }}</p>
+      }
+    </section>
+  </section>
+}

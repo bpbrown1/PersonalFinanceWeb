@@ -9,7 +9,15 @@ describe('application routes', () => {
 
   it('defines every durable feature route with a title and lazy loader', () => {
     const shell = routes.find((route) => route.path === '');
-    const expected = ['overview', 'transactions', 'categories', 'imports', 'reports', 'settings'];
+    const expected = [
+      'overview',
+      'transactions',
+      'categories',
+      'budgets',
+      'imports',
+      'reports',
+      'settings',
+    ];
 
     for (const path of expected) {
       const route = shell?.children?.find((candidate) => candidate.path === path);
@@ -52,6 +60,14 @@ describe('application routes', () => {
     expect(transactions?.title).toBe('Transactions · Personal Finance');
     expect(transactions?.loadComponent).toBeTypeOf('function');
     expect(transactions?.canDeactivate).toHaveLength(1);
+  });
+
+  it('protects the lazy budget workspace from losing unsaved changes', () => {
+    const shell = routes.find((route) => route.path === '');
+    const budgets = shell?.children?.find((route) => route.path === 'budgets');
+    expect(budgets?.title).toBe('Budgets · Personal Finance');
+    expect(budgets?.loadComponent).toBeTypeOf('function');
+    expect(budgets?.canDeactivate).toHaveLength(1);
   });
 
   it('provides a lazy wildcard route with a not-found title', () => {

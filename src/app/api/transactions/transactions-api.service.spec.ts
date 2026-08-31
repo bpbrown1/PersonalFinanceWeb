@@ -15,6 +15,7 @@ describe('TransactionsApiService', () => {
     description: 'Lunch',
     type: 'expense',
     categoryId: null,
+    splits: [],
     merchantPayee: null,
     notes: null,
     externalReference: null,
@@ -34,18 +35,57 @@ describe('TransactionsApiService', () => {
 
   afterEach(() => http.verify());
 
-  it('lists transactions with an explicit status', () => {
-    service.list('all').subscribe();
+  it('searches transactions with combined filters, sorting, and pagination', () => {
+    service
+      .search({
+        status: 'all',
+        accountId: 'account-1',
+        from: '2026-08-01',
+        to: '2026-08-23',
+        categoryId: 'category-1',
+        type: 'expense',
+        minAmount: 10,
+        maxAmount: 50,
+        text: 'lunch',
+        page: 2,
+        size: 25,
+        sort: 'amount',
+        direction: 'asc',
+      })
+      .subscribe();
     const call = http.expectOne((candidate) => candidate.url === '/api/v1/transactions');
     expect(call.request.params.get('status')).toBe('all');
-    call.flush([]);
+    expect(call.request.params.get('accountId')).toBe('account-1');
+    expect(call.request.params.get('from')).toBe('2026-08-01');
+    expect(call.request.params.get('to')).toBe('2026-08-23');
+    expect(call.request.params.get('categoryId')).toBe('category-1');
+    expect(call.request.params.get('type')).toBe('expense');
+    expect(call.request.params.get('minAmount')).toBe('10');
+    expect(call.request.params.get('maxAmount')).toBe('50');
+    expect(call.request.params.get('text')).toBe('lunch');
+    expect(call.request.params.get('page')).toBe('2');
+    expect(call.request.params.get('size')).toBe('25');
+    expect(call.request.params.get('sort')).toBe('amount');
+    expect(call.request.params.get('direction')).toBe('asc');
+    call.flush({ items: [], page: 2, size: 25, totalElements: 0, totalPages: 0 });
   });
 
   it('requests inclusive summaries with optional date boundaries', () => {
-    service.summarize('2026-08-01', '2026-08-23').subscribe();
+    service
+      .summarize({
+        from: '2026-08-01',
+        to: '2026-08-23',
+        accountId: 'account-1',
+        categoryId: 'category-1',
+        type: 'expense',
+      })
+      .subscribe();
     const dated = http.expectOne((candidate) => candidate.url === '/api/v1/transactions/summary');
     expect(dated.request.params.get('from')).toBe('2026-08-01');
     expect(dated.request.params.get('to')).toBe('2026-08-23');
+    expect(dated.request.params.get('accountId')).toBe('account-1');
+    expect(dated.request.params.get('categoryId')).toBe('category-1');
+    expect(dated.request.params.get('type')).toBe('expense');
     dated.flush([]);
 
     service.summarize().subscribe();
