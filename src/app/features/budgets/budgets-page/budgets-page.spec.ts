@@ -15,6 +15,7 @@ describe('BudgetsPage', () => {
     | 'get'
     | 'progress'
     | 'create'
+    | 'copy'
     | 'update'
     | 'archive'
     | 'restore'
@@ -35,6 +36,9 @@ describe('BudgetsPage', () => {
       get: vi.fn(() => of(budgetFixture())),
       progress: vi.fn(() => of(progressFixture())),
       create: vi.fn(() => of(budgetFixture({ name: 'September plan' }))),
+      copy: vi.fn(() =>
+        of(budgetFixture({ id: 'budget-copy', startDate: '2026-10-01', endDate: '2026-10-31' })),
+      ),
       update: vi.fn(() => of(budgetFixture({ name: 'Updated plan' }))),
       archive: vi.fn(() => of(budgetFixture({ status: 'archived' }))),
       restore: vi.fn(() => of(budgetFixture())),
@@ -122,6 +126,55 @@ describe('BudgetsPage', () => {
       .setValue({ categoryId: 'category-1', plannedAmount: 20 });
     component.create();
     expect(api.create).not.toHaveBeenCalled();
+  });
+
+  it('reviews, adjusts, reorders, and submits an independent budget copy once', () => {
+    const fixture = TestBed.createComponent(BudgetsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+    const source = budgetFixture();
+    component.startCopy(source);
+    expect(component.copyForm.controls.targetMonth.value).toBe('2026-10');
+    expect(component.copyForm.controls.lines.length).toBe(2);
+    component.copyForm.controls.lines.at(0).controls.plannedAmount.setValue(450.25);
+    component.removeCopyLine(1);
+    component.addCopyLine();
+    component.copyForm.controls.lines
+      .at(1)
+      .setValue({ categoryId: 'category-2', plannedAmount: 99.5 });
+    component.moveCopyLine(1, -1);
+
+    component.submitCopy(source);
+
+    expect(api.copy).toHaveBeenCalledWith('budget-1', {
+      targetMonth: '2026-10',
+      lines: [
+        { categoryId: 'category-2', plannedAmount: 99.5 },
+        { categoryId: 'category-1', plannedAmount: 450.25 },
+      ],
+    });
+    expect(notifications.show).toHaveBeenCalledWith(
+      'September essentials was copied to October 2026.',
+      'success',
+    );
+  });
+
+  it('supports an explicit empty copy and protects an unsaved review draft', () => {
+    const confirm = vi.spyOn(globalThis, 'confirm').mockReturnValue(false);
+    const fixture = TestBed.createComponent(BudgetsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+    const source = budgetFixture();
+    component.startCopy(source);
+    component.removeCopyLine(1);
+    component.removeCopyLine(0);
+    expect(component.hasPendingChanges()).toBe(true);
+    component.cancelCopy();
+    expect(confirm).toHaveBeenCalledWith('Discard this budget copy draft?');
+    expect(component.copying()).toBe(true);
+
+    component.submitCopy(source);
+    expect(api.copy).toHaveBeenCalledWith('budget-1', { targetMonth: '2026-10', lines: [] });
   });
 
   it('retrieves details and reorders every retained line id', () => {

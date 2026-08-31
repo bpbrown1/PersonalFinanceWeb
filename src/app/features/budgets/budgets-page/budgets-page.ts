@@ -57,6 +57,8 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
   protected readonly editError = signal<AppHttpError | null>(null);
   protected readonly lineError = signal<AppHttpError | null>(null);
   protected readonly lifecycleError = signal<AppHttpError | null>(null);
+  protected readonly copyError = signal<AppHttpError | null>(null);
+  protected readonly copying = signal(false);
   protected readonly editingBudget = signal(false);
   protected readonly editingLineId = signal<string | null>(null);
   protected readonly changing = signal(false);
@@ -66,11 +68,13 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
   protected readonly createSubmission = new SubmissionState();
   protected readonly editSubmission = new SubmissionState();
   protected readonly lineSubmission = new SubmissionState();
+  protected readonly copySubmission = new SubmissionState();
   protected readonly mutationBusy = computed(
     () =>
       this.createSubmission.busy() ||
       this.editSubmission.busy() ||
       this.lineSubmission.busy() ||
+      this.copySubmission.busy() ||
       this.changing(),
   );
   protected readonly expenseCategories = computed(() =>
@@ -98,6 +102,10 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
     month: this.formBuilder.nonNullable.control(this.currentMonth(), Validators.required),
   });
   protected readonly lineForm = this.buildLineForm();
+  protected readonly copyForm = this.formBuilder.group({
+    targetMonth: this.formBuilder.nonNullable.control(this.currentMonth(), Validators.required),
+    lines: this.formBuilder.array<ReturnType<BudgetsPage['buildLineForm']>>([]),
+  });
 
   ngOnInit(): void {
     this.addInitialLine();
@@ -150,7 +158,140 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
     this.progressError.set(null);
     this.cancelBudgetEdit();
     this.cancelLineEdit();
+    this.cancelCopy(false);
     this.detailError.set(null);
+  }
+
+  protected startCopy(budget: Budget): void {
+    this.cancelBudgetEdit();
+    this.cancelLineEdit();
+    this.copyForm.controls.lines.clear();
+    for (const line of [...budget.lines]
+      .filter((item) => item.status === 'active')
+      .sort((a, b) => a.position - b.position)) {
+      const form = this.buildLineForm();
+      form.setValue({ categoryId: line.categoryId, plannedAmount: line.plannedAmount });
+      this.copyForm.controls.lines.push(form);
+    }
+    this.copyForm.controls.targetMonth.setValue(this.nextMonth(budget.startDate.slice(0, 7)));
+    this.copyForm.markAsPristine();
+    this.copyError.set(null);
+    this.copying.set(true);
+  }
+
+  protected addCopyLine(): void {
+    this.copyForm.controls.lines.push(this.buildLineForm());
+    this.copyForm.markAsDirty();
+  }
+
+  protected removeCopyLine(index: number): void {
+    this.copyForm.controls.lines.removeAt(index);
+    this.copyForm.markAsDirty();
+  }
+
+  protected moveCopyLine(index: number, direction: -1 | 1): void {
+    const lines = this.copyForm.controls.lines;
+    const destination = index + direction;
+    if (destination < 0 || destination >= lines.length) return;
+    const current = lines.at(index);
+    lines.removeAt(index);
+    lines.insert(destination, current);
+    this.copyForm.markAsDirty();
+  }
+
+  protected copyCategoryOptions(index: number): TransactionCategory[] {
+    const current = this.copyForm.controls.lines.at(index).controls.categoryId.value;
+    const used = new Set(
+      this.copyForm.controls.lines.controls
+        .filter((_, i) => i !== index)
+        .map((line) => line.controls.categoryId.value),
+    );
+    return this.categories().filter(
+      (category) =>
+        category.id === current ||
+        (category.status === 'active' &&
+          category.applicability !== 'income' &&
+          !used.has(category.id)),
+    );
+  }
+
+  protected submitCopy(source: Budget): void {
+    this.copyError.set(null);
+    if (
+      this.copyForm.invalid ||
+      this.copyHasDuplicates() ||
+      this.copyForm.controls.targetMonth.value === source.startDate.slice(0, 7)
+    ) {
+      this.copyForm.markAllAsTouched();
+      return;
+    }
+    const value = this.copyForm.getRawValue();
+    this.copySubmission
+      .run(() =>
+        this.api.copy(source.id, {
+          targetMonth: value.targetMonth,
+          lines: value.lines.map((line) => ({
+            categoryId: line.categoryId,
+            plannedAmount: Number(line.plannedAmount),
+          })),
+        }),
+      )
+      .subscribe({
+        next: (budget) => {
+          this.copying.set(false);
+          this.copyForm.markAsPristine();
+          this.selectedBudget.set(budget);
+          this.notifications.show(
+            `${budget.name} was copied to ${this.periodLabel(budget)}.`,
+            'success',
+          );
+          this.loadProgress(budget.id);
+          this.load();
+        },
+        error: (error: AppHttpError) => {
+          this.copyError.set(error);
+          this.errors.present(error);
+        },
+      });
+  }
+
+  protected cancelCopy(confirmDiscard = true): void {
+    if (
+      confirmDiscard &&
+      this.copyForm.dirty &&
+      !globalThis.confirm('Discard this budget copy draft?')
+    )
+      return;
+    this.copying.set(false);
+    this.copyError.set(null);
+    this.copyForm.controls.lines.clear();
+    this.copyForm.markAsPristine();
+  }
+
+  protected openExistingBudget(id: string): void {
+    this.detailLoading.set(true);
+    this.api
+      .get(id)
+      .pipe(finalize(() => this.detailLoading.set(false)))
+      .subscribe({
+        next: (budget) => {
+          this.cancelCopy(false);
+          this.selectedBudget.set(budget);
+          this.loadProgress(id);
+        },
+        error: (error) => this.copyError.set(this.errors.present(error)),
+      });
+  }
+
+  protected copyHasDuplicates(): boolean {
+    const ids = this.copyForm.controls.lines.controls
+      .map((line) => line.controls.categoryId.value)
+      .filter(Boolean);
+    return new Set(ids).size !== ids.length;
+  }
+
+  protected copyTargetSame(source: Budget): boolean {
+    return this.copyForm.controls.targetMonth.value === source.startDate.slice(0, 7);
   }
 
   protected addInitialLine(): void {
@@ -475,7 +616,8 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
     return (
       this.createForm.dirty ||
       (this.editingBudget() && this.editForm.dirty) ||
-      (this.editingLineId() !== null && this.lineForm.dirty)
+      (this.editingLineId() !== null && this.lineForm.dirty) ||
+      (this.copying() && this.copyForm.dirty)
     );
   }
 
@@ -550,6 +692,12 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   }
 
+  private nextMonth(month: string): string {
+    const [year, value] = month.split('-').map(Number);
+    const next = new Date(Date.UTC(year, value, 1));
+    return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+
   private applyMutation(
     operation: Observable<Budget>,
     message: string,
@@ -578,6 +726,7 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
     this.resetCreateForm();
     this.cancelBudgetEdit();
     this.cancelLineEdit();
+    this.cancelCopy(false);
     return true;
   }
 

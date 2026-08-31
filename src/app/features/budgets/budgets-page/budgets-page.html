@@ -221,6 +221,134 @@
       <button type="button" class="text-button close-button" (click)="closeDetails()">Close</button>
     </header>
 
+    @if (copying()) {
+      <form
+        class="copy-budget-form"
+        [formGroup]="copyForm"
+        (ngSubmit)="submitCopy(budget)"
+        novalidate
+      >
+        <div class="copy-heading">
+          <div>
+            <p class="eyebrow">Copy {{ periodLabel(budget) }}</p>
+            <h3>Review the new monthly plan</h3>
+            <p>
+              Only the plan is copied. Actual spending and history stay with their original month,
+              and later changes are independent.
+            </p>
+          </div>
+          <div class="field">
+            <label for="copy-target-month">Target month</label>
+            <input id="copy-target-month" type="month" formControlName="targetMonth" />
+            @if (copyTargetSame(budget)) {
+              <p class="field-error">Choose a month other than the source month.</p>
+            }
+            @if (fieldError(copyError(), 'targetMonth')) {
+              <p class="field-error">{{ fieldError(copyError(), 'targetMonth') }}</p>
+            }
+          </div>
+        </div>
+
+        <fieldset formArrayName="lines" class="copy-lines initial-lines">
+          <legend>Category targets <span>Review fixed costs before confirming</span></legend>
+          @for (line of copyForm.controls.lines.controls; track line; let index = $index) {
+            <div class="copy-line initial-line" [formGroupName]="index">
+              <span class="drag-position">{{ index + 1 }}</span>
+              <div class="field">
+                <label [for]="'copy-category-' + index">Category</label>
+                <select [id]="'copy-category-' + index" formControlName="categoryId">
+                  <option value="">Select an expense category</option>
+                  @for (category of copyCategoryOptions(index); track category.id) {
+                    <option
+                      [value]="category.id"
+                      [disabled]="
+                        category.status !== 'active' || category.applicability === 'income'
+                      "
+                    >
+                      {{ category.name }}{{ category.status !== 'active' ? ' (unavailable)' : '' }}
+                    </option>
+                  }
+                </select>
+                @if (fieldError(copyError(), 'lines[' + index + '].categoryId')) {
+                  <p class="field-error">
+                    {{ fieldError(copyError(), 'lines[' + index + '].categoryId') }}
+                  </p>
+                }
+              </div>
+              <div class="field">
+                <label [for]="'copy-amount-' + index">Planned amount</label>
+                <input
+                  [id]="'copy-amount-' + index"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  formControlName="plannedAmount"
+                />
+                @if (fieldError(copyError(), 'lines[' + index + '].plannedAmount')) {
+                  <p class="field-error">
+                    {{ fieldError(copyError(), 'lines[' + index + '].plannedAmount') }}
+                  </p>
+                }
+              </div>
+              <div class="copy-line-actions line-actions">
+                <button
+                  type="button"
+                  class="icon-button"
+                  [disabled]="index === 0"
+                  [attr.aria-label]="'Move copy line ' + (index + 1) + ' up'"
+                  (click)="moveCopyLine(index, -1)"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  class="icon-button"
+                  [disabled]="index === copyForm.controls.lines.length - 1"
+                  [attr.aria-label]="'Move copy line ' + (index + 1) + ' down'"
+                  (click)="moveCopyLine(index, 1)"
+                >
+                  ↓
+                </button>
+                <button type="button" class="text-button danger" (click)="removeCopyLine(index)">
+                  Remove
+                </button>
+              </div>
+            </div>
+          }
+          @if (copyForm.controls.lines.length === 0) {
+            <p class="lines-empty">
+              This will create an empty monthly plan. You can add targets now or later.
+            </p>
+          }
+          @if (copyHasDuplicates()) {
+            <p class="field-error" role="alert">Each category can appear only once.</p>
+          }
+          @if (fieldError(copyError(), 'lines')) {
+            <p class="field-error" role="alert">{{ fieldError(copyError(), 'lines') }}</p>
+          }
+        </fieldset>
+        <button type="button" class="secondary-button add-copy-line" (click)="addCopyLine()">
+          Add category target
+        </button>
+        @if (formError(copyError())) {
+          <div class="copy-error" role="alert">
+            <p class="field-error">{{ formError(copyError()) }}</p>
+            @if (copyError()?.existingBudgetId; as existingId) {
+              <button type="button" class="text-button" (click)="openExistingBudget(existingId)">
+                Open existing budget
+              </button>
+            }
+          </div>
+        }
+        <footer>
+          <button type="button" class="text-button" (click)="cancelCopy()">Cancel</button>
+          <button type="submit" class="primary-button" [disabled]="copySubmission.busy()">
+            {{ copySubmission.busy() ? 'Copying…' : 'Confirm independent copy' }}
+          </button>
+        </footer>
+      </form>
+    }
+
     <section class="progress-section" aria-labelledby="budget-progress-heading">
       <div class="section-heading">
         <div>
@@ -500,6 +628,9 @@
       </form>
     } @else {
       <div class="budget-actions">
+        <button type="button" class="secondary-button" (click)="startCopy(budget)">
+          Copy to another month
+        </button>
         @if (budget.status === 'active') {
           <button type="button" class="secondary-button" (click)="startBudgetEdit(budget)">
             Edit budget

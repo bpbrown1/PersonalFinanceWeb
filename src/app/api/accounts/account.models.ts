@@ -39,4 +39,5 @@ export interface ApiErrorResponse {
   status: number;
   error: string;
   fieldErrors: Record<string, string>;
+  existingBudgetId?: string;
 }

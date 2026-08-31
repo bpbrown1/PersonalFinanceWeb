@@ -53,6 +53,18 @@ describe('BudgetsApiService', () => {
     updateCall.flush(budgetFixture());
   });
 
+  it('copies one reviewed ordered draft atomically', () => {
+    const body = {
+      targetMonth: '2026-10',
+      lines: [{ categoryId: 'category-2', plannedAmount: 175.25 }],
+    };
+    service.copy('budget/1', body).subscribe();
+    const request = http.expectOne('/api/v1/budgets/budget%2F1/copy');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual(body);
+    request.flush(budgetFixture());
+  });
+
   it('manages lifecycle and every retained line operation', () => {
     service.get('budget-1').subscribe();
     http.expectOne('/api/v1/budgets/budget-1').flush(budgetFixture());
