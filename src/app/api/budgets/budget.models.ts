@@ -43,6 +43,11 @@ export interface CreateBudgetRequest {
   lines: SaveBudgetLineRequest[];
 }
 
+export interface CopyBudgetRequest {
+  targetMonth: string;
+  lines: SaveBudgetLineRequest[];
+}
+
 export interface UpdateBudgetRequest {
   name: string;
   currency: string;

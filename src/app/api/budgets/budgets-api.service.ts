@@ -10,6 +10,7 @@ import {
   BudgetProgressTransactionPageCriteria,
   BudgetStatusFilter,
   CreateBudgetRequest,
+  CopyBudgetRequest,
   ReorderBudgetLinesRequest,
   SaveBudgetLineRequest,
   UpdateBudgetRequest,
@@ -58,6 +59,10 @@ export class BudgetsApiService {
 
   create(request: CreateBudgetRequest): Observable<Budget> {
     return this.http.post<Budget>(this.budgetsUrl, request);
+  }
+
+  copy(id: string, request: CopyBudgetRequest): Observable<Budget> {
+    return this.http.post<Budget>(this.budgetUrl(id) + '/copy', request);
   }
 
   update(id: string, request: UpdateBudgetRequest): Observable<Budget> {

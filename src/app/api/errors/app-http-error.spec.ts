@@ -2,8 +2,25 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { AppHttpError, normalizeHttpError } from './app-http-error';
 
 describe('normalizeHttpError', () => {
+  it('retains an existing budget id from a conflict response', () => {
+    const normalized = normalizeHttpError(
+      new HttpErrorResponse({
+        status: 409,
+        error: {
+          timestamp: '2026-08-31T12:00:00Z',
+          status: 409,
+          error: 'Target occupied',
+          fieldErrors: {},
+          existingBudgetId: 'budget-2',
+        },
+      }),
+    );
+    expect(normalized.existingBudgetId).toBe('budget-2');
+  });
   it('classifies an unreachable API as a retryable network failure', () => {
-    const result = normalizeHttpError(new HttpErrorResponse({ status: 0, statusText: 'Unknown Error' }));
+    const result = normalizeHttpError(
+      new HttpErrorResponse({ status: 0, statusText: 'Unknown Error' }),
+    );
     expect(result).toMatchObject({ kind: 'network', status: 0, retryable: true });
     expect(result.userMessage).toContain('API is running');
   });
@@ -14,14 +31,20 @@ describe('normalizeHttpError', () => {
   });
 
   it('classifies a server response as retryable without exposing its body', () => {
-    const result = normalizeHttpError(new HttpErrorResponse({ status: 503, error: 'database details', statusText: 'Unavailable' }));
+    const result = normalizeHttpError(
+      new HttpErrorResponse({ status: 503, error: 'database details', statusText: 'Unavailable' }),
+    );
     expect(result).toMatchObject({ kind: 'server', status: 503, retryable: true });
     expect(result.userMessage).not.toContain('database details');
   });
 
   it('classifies another 4xx response as a client failure', () => {
     const result = normalizeHttpError(apiError(409, 'Account already exists'));
-    expect(result).toMatchObject({ kind: 'client', status: 409, userMessage: 'Account already exists' });
+    expect(result).toMatchObject({
+      kind: 'client',
+      status: 409,
+      userMessage: 'Account already exists',
+    });
   });
 
   it('classifies non-HTTP exceptions as unexpected', () => {
