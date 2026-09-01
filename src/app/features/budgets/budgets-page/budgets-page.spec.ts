@@ -75,7 +75,30 @@ describe('BudgetsPage', () => {
     expect(api.list).toHaveBeenCalledWith('active');
     expect(categoriesApi.list).toHaveBeenCalledWith('all');
     expect(fixture.nativeElement.textContent).toContain('September essentials');
-    expect(fixture.nativeElement.textContent).toContain('Live progress from posted expenses');
+    expect(fixture.nativeElement.textContent).toContain('Your monthly plans');
+    expect(fixture.nativeElement.textContent).toContain('New budget');
+  });
+
+  it('keeps creation and plan maintenance out of the primary browsing flow', () => {
+    const fixture = TestBed.createComponent(BudgetsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+
+    expect(fixture.nativeElement.textContent).not.toContain('Create a monthly budget');
+    component.openCreate();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Create a monthly budget');
+    expect(fixture.nativeElement.textContent).not.toContain('Your monthly plans');
+
+    component.selectBudget(budgetFixture());
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Budget progress');
+    expect(fixture.nativeElement.textContent).not.toContain('Ordering is retained');
+
+    component.selectDetailView('plan');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Ordering is retained');
+    expect(fixture.nativeElement.textContent).not.toContain('Plan versus actual');
   });
 
   it('creates a monthly budget with normalized currency and ordered initial lines', () => {
@@ -280,6 +303,7 @@ describe('BudgetsPage', () => {
     const component = fixture.componentInstance as any;
     component.filter.set('archived');
     component.selectBudget(archived);
+    component.selectDetailView('plan');
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Restore it before changing metadata');
     expect(fixture.nativeElement.textContent).toContain('Restore budget');

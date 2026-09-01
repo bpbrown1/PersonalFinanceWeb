@@ -4,10 +4,13 @@
     <h1>Budgets</h1>
     <p>Create monthly category plans and keep every planned dollar visible.</p>
   </div>
-  <span class="planning-note">Live progress from posted expenses</span>
+  <button type="button" class="primary-button header-action" (click)="openCreate()">
+    <span aria-hidden="true">＋</span>
+    New budget
+  </button>
 </header>
 
-@if (filter() === 'active') {
+@if (creatingBudget()) {
   <section class="create-panel" aria-labelledby="create-budget-heading">
     <div class="panel-intro">
       <span class="panel-icon" aria-hidden="true">◎</span>
@@ -117,6 +120,7 @@
         @if (formError(createError())) {
           <p class="field-error" role="alert">{{ formError(createError()) }}</p>
         }
+        <button type="button" class="text-button" (click)="cancelCreate()">Cancel</button>
         <button class="primary-button" type="submit" [disabled]="mutationBusy()">
           {{ createSubmission.busy() ? 'Creating…' : 'Create budget' }}
         </button>
@@ -125,6 +129,16 @@
   </section>
 }
 
+@if (!creatingBudget()) {
+  <div class="budget-toolbar">
+    <div>
+      <h2>Your monthly plans</h2>
+      <p>Choose a budget to review its progress or adjust the plan.</p>
+    </div>
+    <div class="budget-toolbar-actions">
+      @if (!loading() && !loadError()) {
+        <span class="budget-count">{{ budgets().length }} {{ budgets().length === 1 ? 'plan' : 'plans' }}</span>
+      }
 <nav class="filters" aria-label="Budget status">
   <button
     type="button"
@@ -143,6 +157,8 @@
     Archived
   </button>
 </nav>
+    </div>
+  </div>
 
 @if (loading()) {
   <app-page-state
@@ -191,6 +207,7 @@
     }
   </section>
 }
+}
 
 @if (detailLoading()) {
   <app-page-state
@@ -221,7 +238,26 @@
       <button type="button" class="text-button close-button" (click)="closeDetails()">Close</button>
     </header>
 
-    @if (copying()) {
+    <nav class="detail-tabs" aria-label="Budget details">
+      <button
+        type="button"
+        [class.selected]="detailView() === 'overview'"
+        [attr.aria-pressed]="detailView() === 'overview'"
+        (click)="selectDetailView('overview')"
+      >
+        Overview
+      </button>
+      <button
+        type="button"
+        [class.selected]="detailView() === 'plan'"
+        [attr.aria-pressed]="detailView() === 'plan'"
+        (click)="selectDetailView('plan')"
+      >
+        Plan &amp; categories
+      </button>
+    </nav>
+
+    @if (copying() && detailView() === 'plan') {
       <form
         class="copy-budget-form"
         [formGroup]="copyForm"
@@ -349,6 +385,7 @@
       </form>
     }
 
+    @if (detailView() === 'overview') {
     <section class="progress-section" aria-labelledby="budget-progress-heading">
       <div class="section-heading">
         <div>
@@ -580,7 +617,9 @@
         </section>
       }
     </section>
+    }
 
+    @if (detailView() === 'plan') {
     @if (budget.status === 'archived') {
       <div class="restriction-note" role="note">
         <strong>This budget is archived.</strong>
@@ -820,5 +859,6 @@
         <p class="field-error" role="alert">{{ lifecycleError()!.userMessage }}</p>
       }
     </section>
+    }
   </section>
 }

@@ -59,6 +59,8 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
   protected readonly lifecycleError = signal<AppHttpError | null>(null);
   protected readonly copyError = signal<AppHttpError | null>(null);
   protected readonly copying = signal(false);
+  protected readonly creatingBudget = signal(false);
+  protected readonly detailView = signal<'overview' | 'plan'>('overview');
   protected readonly editingBudget = signal(false);
   protected readonly editingLineId = signal<string | null>(null);
   protected readonly changing = signal(false);
@@ -132,12 +134,15 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
   protected selectFilter(filter: BudgetStatus): void {
     if (filter === this.filter() || !this.discardPendingChanges()) return;
     this.filter.set(filter);
+    this.creatingBudget.set(false);
     this.closeDetails();
     this.load();
   }
 
   protected selectBudget(budget: Budget): void {
     if (!this.discardPendingChanges()) return;
+    this.creatingBudget.set(false);
+    this.detailView.set('overview');
     this.detailLoading.set(true);
     this.detailError.set(null);
     this.progress.set(null);
@@ -160,9 +165,37 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
     this.cancelLineEdit();
     this.cancelCopy(false);
     this.detailError.set(null);
+    this.detailView.set('overview');
+  }
+
+  protected openCreate(): void {
+    if (!this.discardPendingChanges()) return;
+    if (this.filter() !== 'active') {
+      this.filter.set('active');
+      this.load();
+    }
+    this.closeDetails();
+    this.creatingBudget.set(true);
+  }
+
+  protected cancelCreate(confirmDiscard = true): void {
+    if (
+      confirmDiscard &&
+      this.createForm.dirty &&
+      !globalThis.confirm('Discard this new budget draft?')
+    )
+      return;
+    this.resetCreateForm();
+    this.createError.set(null);
+    this.creatingBudget.set(false);
+  }
+
+  protected selectDetailView(view: 'overview' | 'plan'): void {
+    this.detailView.set(view);
   }
 
   protected startCopy(budget: Budget): void {
+    this.detailView.set('plan');
     this.cancelBudgetEdit();
     this.cancelLineEdit();
     this.copyForm.controls.lines.clear();
@@ -362,6 +395,7 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
       .subscribe({
         next: (budget) => {
           this.resetCreateForm();
+          this.creatingBudget.set(false);
           this.notifications.show(`${budget.name} was created.`, 'success');
           this.selectedBudget.set(budget);
           this.loadProgress(budget.id);
