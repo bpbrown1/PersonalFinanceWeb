@@ -2,7 +2,12 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api.providers';
-import { AccountStatusFilter, CreateFinancialAccountRequest, FinancialAccount, UpdateFinancialAccountRequest } from './account.models';
+import {
+  AccountStatusFilter,
+  CreateFinancialAccountRequest,
+  FinancialAccount,
+  UpdateFinancialAccountRequest,
+} from './account.models';
 
 @Injectable({ providedIn: 'root' })
 export class AccountsApiService {
@@ -15,6 +20,10 @@ export class AccountsApiService {
 
   get(id: string): Observable<FinancialAccount> {
     return this.http.get<FinancialAccount>(this.accountsUrl + '/' + encodeURIComponent(id));
+  }
+
+  listCurrencies(): Observable<string[]> {
+    return this.http.get<string[]>(this.accountsUrl + '/currencies');
   }
 
   create(request: CreateFinancialAccountRequest): Observable<FinancialAccount> {
