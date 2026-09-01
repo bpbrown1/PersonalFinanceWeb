@@ -44,6 +44,14 @@ describe('AccountsApiService', () => {
     await expect(result).resolves.toEqual(account);
   });
 
+  it('retrieves the REST-supported currency catalog without a Web allowlist', async () => {
+    const result = firstValueFrom(service.listCurrencies());
+    const request = http.expectOne('http://localhost:8080/api/v1/accounts/currencies');
+    expect(request.request.method).toBe('GET');
+    request.flush(['AED', 'EUR', 'USD', 'ZWG']);
+    await expect(result).resolves.toEqual(['AED', 'EUR', 'USD', 'ZWG']);
+  });
+
   it('creates an account using the documented request contract', async () => {
     const body: CreateFinancialAccountRequest = {
       name: 'Everyday Checking',
@@ -75,7 +83,9 @@ describe('AccountsApiService', () => {
 
     for (const action of ['archive', 'restore'] as const) {
       const result = firstValueFrom(service[action](account.id));
-      const request = http.expectOne(`http://localhost:8080/api/v1/accounts/${account.id}/${action}`);
+      const request = http.expectOne(
+        `http://localhost:8080/api/v1/accounts/${account.id}/${action}`,
+      );
       expect(request.request.method).toBe('POST');
       request.flush(account);
       await result;
@@ -83,12 +93,14 @@ describe('AccountsApiService', () => {
   });
 
   it('normalizes validation responses and retains field errors', async () => {
-    const result = firstValueFrom(service.create({
-      name: '',
-      type: 'checking',
-      currency: 'US',
-      openingDate: '2026-08-22',
-    }));
+    const result = firstValueFrom(
+      service.create({
+        name: '',
+        type: 'checking',
+        currency: 'US',
+        openingDate: '2026-08-22',
+      }),
+    );
     const request = http.expectOne('http://localhost:8080/api/v1/accounts');
     request.flush(
       {

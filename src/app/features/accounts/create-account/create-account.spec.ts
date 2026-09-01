@@ -10,13 +10,16 @@ import { CreateAccount } from './create-account';
 
 describe('CreateAccount', () => {
   const account = accountFixture();
-  let api: { create: ReturnType<typeof vi.fn> };
+  let api: { create: ReturnType<typeof vi.fn>; listCurrencies: ReturnType<typeof vi.fn> };
   let notifications: { show: ReturnType<typeof vi.fn> };
   let presenter: { present: ReturnType<typeof vi.fn> };
   let router: Router;
 
   beforeEach(async () => {
-    api = { create: vi.fn().mockReturnValue(of(account)) };
+    api = {
+      create: vi.fn().mockReturnValue(of(account)),
+      listCurrencies: vi.fn().mockReturnValue(of(['EUR', 'USD', 'ZWG'])),
+    };
     notifications = { show: vi.fn() };
     presenter = { present: vi.fn((error) => error) };
     await TestBed.configureTestingModule({
@@ -42,7 +45,7 @@ describe('CreateAccount', () => {
 
     expect(api.create).not.toHaveBeenCalled();
     expect(fixture.nativeElement.textContent).toContain('Enter an account name.');
-    expect(fixture.nativeElement.textContent).toContain('Enter a three-letter currency code.');
+    expect(fixture.nativeElement.textContent).toContain('Select a supported currency.');
     expect(fixture.nativeElement.textContent).toContain('Choose an opening date.');
     expect(fixture.nativeElement.textContent).toContain('two decimal places');
   });
@@ -53,7 +56,7 @@ describe('CreateAccount', () => {
     componentForm(fixture.componentInstance).setValue({
       name: '  Everyday Checking  ',
       type: 'checking',
-      currency: 'usd',
+      currency: 'USD',
       openingDate: '2026-08-22',
       openingBalance: 1250.75,
     });
@@ -66,7 +69,10 @@ describe('CreateAccount', () => {
       openingDate: '2026-08-22',
       openingBalance: 1250.75,
     });
-    expect(notifications.show).toHaveBeenCalledWith('Everyday Checking was added successfully.', 'success');
+    expect(notifications.show).toHaveBeenCalledWith(
+      'Everyday Checking was added successfully.',
+      'success',
+    );
     expect(router.navigate).toHaveBeenCalledWith(['/accounts']);
     expect(fixture.componentInstance.hasPendingChanges()).toBe(false);
   });
@@ -91,7 +97,9 @@ describe('CreateAccount', () => {
   });
 
   it('renders server field errors beside the corresponding input', () => {
-    const error = new AppHttpError('validation', 'Validation failed', 400, { currency: 'Currency is not supported' });
+    const error = new AppHttpError('validation', 'Validation failed', 400, {
+      currency: 'Currency is not supported',
+    });
     api.create.mockReturnValue(throwError(() => error));
     const fixture = TestBed.createComponent(CreateAccount);
     fixture.detectChanges();
@@ -108,6 +116,41 @@ describe('CreateAccount', () => {
     expect(fixture.nativeElement.textContent).toContain('Currency is not supported');
     expect(presenter.present).toHaveBeenCalledWith(error);
     expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('blocks submission while the REST currency catalog is unavailable and supports retry', () => {
+    const catalogError = new AppHttpError('server', 'Currency catalog unavailable', 503);
+    api.listCurrencies.mockReturnValueOnce(throwError(() => catalogError));
+    const fixture = TestBed.createComponent(CreateAccount);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+    component.form.patchValue({ name: 'Checking' });
+
+    component.submit();
+    fixture.detectChanges();
+
+    expect(api.create).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('Currency catalog unavailable');
+    expect(fixture.nativeElement.textContent).toContain('Retry currencies');
+
+    api.listCurrencies.mockReturnValueOnce(of(['EUR', 'USD']));
+    component.loadCurrencies();
+    fixture.detectChanges();
+    expect(component.currencyCatalogReady()).toBe(true);
+    expect(component.form.controls.currency.value).toBe('USD');
+  });
+
+  it('treats an empty currency catalog as unavailable instead of allowing free text', () => {
+    api.listCurrencies.mockReturnValueOnce(of([]));
+    const fixture = TestBed.createComponent(CreateAccount);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+
+    expect(component.currencyCatalogReady()).toBe(false);
+    expect(fixture.nativeElement.textContent).toContain('No supported currencies are available');
+    expect(fixture.nativeElement.textContent).toContain('Retry currencies');
+    expect(fixture.nativeElement.querySelector('p-select')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('input#currency')).toBeNull();
   });
 
   it('tracks whether the form has unsaved changes', () => {

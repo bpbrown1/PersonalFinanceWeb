@@ -1,6 +1,9 @@
-import { Component, HostListener, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { ButtonModule } from 'primeng/button';
+import { SelectModule } from 'primeng/select';
+import { finalize } from 'rxjs';
 import { AccountsApiService } from '../../../api/accounts/accounts-api.service';
 import { AccountType, CreateFinancialAccountRequest } from '../../../api/accounts/account.models';
 import { ApiErrorPresenter } from '../../../api/errors/api-error-presenter.service';
@@ -11,11 +14,11 @@ import { NotificationService } from '../../../core/notification.service';
 
 @Component({
   selector: 'app-create-account',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, ButtonModule, SelectModule],
   templateUrl: './create-account.html',
   styleUrl: './create-account.scss',
 })
-export class CreateAccount implements HasPendingChanges {
+export class CreateAccount implements OnInit, HasPendingChanges {
   private readonly formBuilder = inject(FormBuilder);
   private readonly accountsApi = inject(AccountsApiService);
   private readonly errors = inject(ApiErrorPresenter);
@@ -24,6 +27,13 @@ export class CreateAccount implements HasPendingChanges {
 
   protected readonly submission = new SubmissionState();
   protected readonly serverFieldErrors = signal<Readonly<Record<string, string>>>({});
+  protected readonly currencies = signal<string[]>([]);
+  protected readonly currenciesLoading = signal(true);
+  protected readonly currenciesError = signal<AppHttpError | null>(null);
+  protected readonly currencyCatalogReady = computed(
+    () =>
+      !this.currenciesLoading() && this.currenciesError() === null && this.currencies().length > 0,
+  );
   protected readonly accountTypes: ReadonlyArray<{ value: AccountType; label: string }> = [
     { value: 'checking', label: 'Checking' },
     { value: 'savings', label: 'Savings' },
@@ -33,29 +43,76 @@ export class CreateAccount implements HasPendingChanges {
   ];
   protected readonly form = this.formBuilder.group({
     name: ['', [Validators.required, Validators.maxLength(100)]],
-    type: this.formBuilder.control<AccountType>('checking', { nonNullable: true, validators: Validators.required }),
-    currency: ['USD', [Validators.required, Validators.pattern(/^[A-Za-z]{3}$/)]],
+    type: this.formBuilder.control<AccountType>('checking', {
+      nonNullable: true,
+      validators: Validators.required,
+    }),
+    currency: this.formBuilder.nonNullable.control('USD', [
+      Validators.required,
+      (control) => this.supportedCurrency(control),
+    ]),
     openingDate: [this.today(), Validators.required],
-    openingBalance: this.formBuilder.control<number | null>(null, [Validators.pattern(/^-?\d{1,17}(\.\d{1,2})?$/)]),
+    openingBalance: this.formBuilder.control<number | null>(null, [
+      Validators.pattern(/^-?\d{1,17}(\.\d{1,2})?$/),
+    ]),
   });
+
+  ngOnInit(): void {
+    this.loadCurrencies();
+  }
+
+  protected loadCurrencies(): void {
+    this.currenciesLoading.set(true);
+    this.currenciesError.set(null);
+    this.accountsApi
+      .listCurrencies()
+      .pipe(finalize(() => this.currenciesLoading.set(false)))
+      .subscribe({
+        next: (currencies) => {
+          if (currencies.length === 0) {
+            this.currencies.set([]);
+            this.currenciesError.set(
+              new AppHttpError(
+                'unexpected',
+                'No supported currencies are available. Please try again.',
+                null,
+                {},
+                true,
+              ),
+            );
+            this.form.controls.currency.updateValueAndValidity({ emitEvent: false });
+            return;
+          }
+          this.currencies.set(currencies);
+          this.form.controls.currency.updateValueAndValidity({ emitEvent: false });
+        },
+        error: (error) => {
+          this.currencies.set([]);
+          this.currenciesError.set(this.errors.present(error));
+          this.form.controls.currency.updateValueAndValidity({ emitEvent: false });
+        },
+      });
+  }
 
   protected submit(): void {
     this.serverFieldErrors.set({});
-    if (this.form.invalid) {
+    if (!this.currencyCatalogReady() || this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
-    this.submission.run(() => this.accountsApi.create(this.toRequest())).subscribe({
-      next: (account) => {
-        this.form.markAsPristine();
-        this.notifications.show(account.name + ' was added successfully.', 'success');
-        void this.router.navigate(['/accounts']);
-      },
-      error: (error: AppHttpError) => {
-        this.serverFieldErrors.set(error.fieldErrors);
-        this.errors.present(error);
-      },
-    });
+    this.submission
+      .run(() => this.accountsApi.create(this.toRequest()))
+      .subscribe({
+        next: (account) => {
+          this.form.markAsPristine();
+          this.notifications.show(account.name + ' was added successfully.', 'success');
+          void this.router.navigate(['/accounts']);
+        },
+        error: (error: AppHttpError) => {
+          this.serverFieldErrors.set(error.fieldErrors);
+          this.errors.present(error);
+        },
+      });
   }
 
   hasPendingChanges(): boolean {
@@ -72,7 +129,7 @@ export class CreateAccount implements HasPendingChanges {
     return {
       name: value.name!.trim(),
       type: value.type,
-      currency: value.currency!.toUpperCase(),
+      currency: value.currency,
       openingDate: value.openingDate!,
       ...(value.openingBalance === null ? {} : { openingBalance: value.openingBalance }),
     };
@@ -82,5 +139,9 @@ export class CreateAccount implements HasPendingChanges {
     const local = new Date();
     local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
     return local.toISOString().slice(0, 10);
+  }
+
+  private supportedCurrency(control: AbstractControl): { unsupportedCurrency: true } | null {
+    return this.currencies().includes(control.value) ? null : { unsupportedCurrency: true };
   }
 }

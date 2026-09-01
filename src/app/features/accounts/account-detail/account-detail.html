@@ -1,36 +1,155 @@
 @if (loading()) {
-  <app-page-state kind="loading" title="Loading account" message="Retrieving the latest account details." />
+  <app-page-state
+    kind="loading"
+    title="Loading account"
+    message="Retrieving the latest account details."
+  />
 } @else if (loadError()) {
-  <app-page-state kind="error" title="Account unavailable" [message]="loadError()!.userMessage" actionLabel="Try again" (action)="load()" />
+  <app-page-state
+    kind="error"
+    title="Account unavailable"
+    [message]="loadError()!.userMessage"
+    actionLabel="Try again"
+    (action)="load()"
+  />
 } @else if (account(); as current) {
   <header class="page-header">
     <a routerLink="/accounts" class="back-link">← Accounts</a>
-    <div class="title-row"><div><p class="eyebrow">{{ current.type.replace('_', ' ') | titlecase }}</p><h1>{{ current.name }}</h1></div><span class="status">{{ current.status }}</span></div>
-    <p>Current balance <strong>{{ current.currentBalance | currency:current.currency:'symbol':'1.2-2' }}</strong> · Updated {{ current.updatedAt | date:'medium' }}</p>
-    <a [routerLink]="['/accounts', current.id, 'history']" class="history-link">View balance history →</a>
+    <div class="title-row">
+      <div>
+        <p class="eyebrow">{{ current.type.replace('_', ' ') | titlecase }}</p>
+        <h1>{{ current.name }}</h1>
+      </div>
+      <span class="status">{{ current.status }}</span>
+    </div>
+    <p>
+      Current balance
+      <strong>{{
+        current.currentBalance | currency: current.currency : 'symbol' : '1.2-2'
+      }}</strong>
+      · Updated {{ current.updatedAt | date: 'medium' }}
+    </p>
+    <a [routerLink]="['/accounts', current.id, 'history']" class="history-link"
+      >View balance history →</a
+    >
   </header>
   <form [formGroup]="form" (ngSubmit)="save()" novalidate>
     <section class="form-card" aria-labelledby="account-details-heading">
-      <header><span class="step">1</span><div><h2 id="account-details-heading">Account details</h2><p>Changes keep the account's history intact.</p></div></header>
-      <div class="field full-width"><label for="account-name">Account name *</label><input id="account-name" type="text" formControlName="name" maxlength="100" />
-        @if (form.controls.name.touched && form.controls.name.hasError('required')) { <p class="field-error">Enter an account name.</p> }
-        @else if (serverFieldErrors()['name']) { <p class="field-error">{{ serverFieldErrors()['name'] }}</p> }
+      <header>
+        <span class="step">1</span>
+        <div>
+          <h2 id="account-details-heading">Account details</h2>
+          <p>Changes keep the account's history intact.</p>
+        </div>
+      </header>
+      <div class="field full-width">
+        <label for="account-name">Account name *</label
+        ><input id="account-name" type="text" formControlName="name" maxlength="100" />
+        @if (form.controls.name.touched && form.controls.name.hasError('required')) {
+          <p class="field-error">Enter an account name.</p>
+        } @else if (serverFieldErrors()['name']) {
+          <p class="field-error">{{ serverFieldErrors()['name'] }}</p>
+        }
       </div>
-      <div class="field"><label for="account-type">Account type *</label><select id="account-type" formControlName="type">@for (type of accountTypes; track type.value) { <option [value]="type.value">{{ type.label }}</option> }</select></div>
-      <div class="field"><label for="currency">Currency *</label><input id="currency" type="text" formControlName="currency" maxlength="3" />
-        @if (form.controls.currency.touched && form.controls.currency.invalid) { <p class="field-error">Enter a three-letter currency code.</p> }
-        @else if (serverFieldErrors()['currency']) { <p class="field-error">{{ serverFieldErrors()['currency'] }}</p> }
+      <div class="field">
+        <label for="account-type">Account type *</label
+        ><select id="account-type" formControlName="type">
+          @for (type of accountTypes; track type.value) {
+            <option [value]="type.value">{{ type.label }}</option>
+          }
+        </select>
       </div>
-      <div class="field"><label for="opening-date">Opening date *</label><input id="opening-date" type="date" formControlName="openingDate" /></div>
-      <div class="field"><label for="opening-balance">Opening balance</label><div class="money-input"><span aria-hidden="true">$</span><input id="opening-balance" type="number" formControlName="openingBalance" step="0.01" /></div>
-        @if (form.controls.openingBalance.touched && form.controls.openingBalance.invalid) { <p class="field-error">Enter no more than 17 digits and two decimal places.</p> }
-        @else if (serverFieldErrors()['openingBalance']) { <p class="field-error">{{ serverFieldErrors()['openingBalance'] }}</p> }
+      <div class="field">
+        <label for="currency">Currency *</label>
+        <p-select
+          inputId="currency"
+          formControlName="currency"
+          [options]="currencies()"
+          [filter]="true"
+          filterPlaceholder="Search currency codes"
+          emptyFilterMessage="No supported currency matches"
+          [loading]="currenciesLoading()"
+          [disabled]="!currencyCatalogReady()"
+          [placeholder]="currenciesError() ? 'Currency catalog unavailable' : 'Select a currency'"
+          [attr.aria-invalid]="form.controls.currency.invalid && form.controls.currency.touched"
+          [attr.aria-describedby]="
+            (form.controls.currency.invalid && form.controls.currency.touched) ||
+            serverFieldErrors()['currency']
+              ? 'currency-error currency-catalog-status'
+              : 'currency-help currency-catalog-status'
+          "
+        />
+        <small id="currency-help">
+          Search and select a REST-supported currency code. Current currency:
+          {{ current.currency }}.
+        </small>
+        <span id="currency-catalog-status" class="sr-only" aria-live="polite">
+          @if (currenciesLoading()) {
+            Loading supported currencies.
+          } @else if (currencyCatalogReady()) {
+            {{ currencies().length }} supported currencies available.
+          }
+        </span>
+        @if (currenciesError()) {
+          <div class="catalog-error" role="alert">
+            <p>{{ currenciesError()!.userMessage }}</p>
+            <button pButton type="button" [text]="true" (click)="loadCurrencies()">
+              Retry currencies
+            </button>
+          </div>
+        } @else if (form.controls.currency.touched && form.controls.currency.invalid) {
+          <p id="currency-error" class="field-error">Select a supported currency.</p>
+        } @else if (serverFieldErrors()['currency']) {
+          <p id="currency-error" class="field-error">{{ serverFieldErrors()['currency'] }}</p>
+        }
+      </div>
+      <div class="field">
+        <label for="opening-date">Opening date *</label
+        ><input id="opening-date" type="date" formControlName="openingDate" />
+      </div>
+      <div class="field">
+        <label for="opening-balance">Opening balance</label>
+        <div class="money-input">
+          <span aria-hidden="true">$</span
+          ><input id="opening-balance" type="number" formControlName="openingBalance" step="0.01" />
+        </div>
+        @if (form.controls.openingBalance.touched && form.controls.openingBalance.invalid) {
+          <p class="field-error">Enter no more than 17 digits and two decimal places.</p>
+        } @else if (serverFieldErrors()['openingBalance']) {
+          <p class="field-error">{{ serverFieldErrors()['openingBalance'] }}</p>
+        }
       </div>
     </section>
     <footer class="form-actions split-actions">
-      @if (current.status === 'active') { <button type="button" class="danger-button" [disabled]="lifecycleBusy()" (click)="archive()">Archive account</button> }
-      @else { <button type="button" class="secondary-button" [disabled]="lifecycleBusy()" (click)="restore()">Restore account</button> }
-      <div><a routerLink="/accounts" class="cancel-button">Cancel</a><button type="submit" class="primary-button" [disabled]="submission.busy() || !form.dirty">{{ submission.busy() ? 'Saving…' : 'Save changes' }}</button></div>
+      @if (current.status === 'active') {
+        <button
+          type="button"
+          class="danger-button"
+          [disabled]="lifecycleBusy()"
+          (click)="archive()"
+        >
+          Archive account
+        </button>
+      } @else {
+        <button
+          type="button"
+          class="secondary-button"
+          [disabled]="lifecycleBusy()"
+          (click)="restore()"
+        >
+          Restore account
+        </button>
+      }
+      <div>
+        <a routerLink="/accounts" class="cancel-button">Cancel</a
+        ><button
+          type="submit"
+          class="primary-button"
+          [disabled]="submission.busy() || !form.dirty || !currencyCatalogReady()"
+        >
+          {{ submission.busy() ? 'Saving…' : 'Save changes' }}
+        </button>
+      </div>
     </footer>
   </form>
 }
