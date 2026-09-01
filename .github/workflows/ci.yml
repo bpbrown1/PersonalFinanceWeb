@@ -36,4 +36,6 @@ jobs:
         run: npm test -- --watch=false
 
       - name: Build
+        env:
+          PRIMEUI_LICENSE: ${{ secrets.PRIMEUI_LICENSE }}
         run: npm run build
