@@ -54,19 +54,17 @@ describe('CategoriesPage', () => {
     expect(api.list).toHaveBeenCalledWith('all');
     expect(fixture.nativeElement.textContent).toContain('Groceries');
     expect(fixture.nativeElement.textContent).toContain('Expense');
-    expect(fixture.nativeElement.textContent).toContain('Available for new transaction activity.');
+    expect(fixture.nativeElement.textContent).toContain('Available for transactions');
   });
 
   it('loads archived categories and explains that history is retained', () => {
     const fixture = TestBed.createComponent(CategoriesPage);
     fixture.detectChanges();
-    fixture.nativeElement.querySelectorAll('.filters button')[1].click();
+    (fixture.componentInstance as any).selectFilter('archived');
     fixture.detectChanges();
     expect(api.list).toHaveBeenCalledTimes(1);
     expect(fixture.nativeElement.textContent).toContain('Old category');
-    expect(fixture.nativeElement.textContent).toContain(
-      'Retained for existing transaction history.',
-    );
+    expect(fixture.nativeElement.textContent).toContain('Retained for history');
   });
 
   it('creates a valid category with an optional parent and refreshes the list', () => {
@@ -117,7 +115,11 @@ describe('CategoriesPage', () => {
       'Food › Dining',
       'Food › Dining › Restaurants',
     ]);
-    expect(cards[1].textContent).toContain('Child of Food (active)');
+    expect(cards[0].textContent).toContain('Root');
+    expect(cards[0].textContent).toContain('Top-level category');
+    expect(cards[1].textContent).toContain('Child');
+    expect(cards[1].querySelector('.relationship strong')?.textContent?.trim()).toBe('Food');
+    expect(cards[1].closest('.category-row')?.classList).toContain('child-row');
   });
 
   it('reparents a category through the dedicated endpoint after saving regular changes', () => {

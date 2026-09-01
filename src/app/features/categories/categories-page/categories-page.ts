@@ -1,6 +1,11 @@
 import { DatePipe } from '@angular/common';
 import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
+import { SelectModule } from 'primeng/select';
+import { SelectButtonModule } from 'primeng/selectbutton';
+import { TagModule } from 'primeng/tag';
 import { Observable, finalize, of, switchMap } from 'rxjs';
 import { CategoriesApiService } from '../../../api/categories/categories-api.service';
 import {
@@ -18,7 +23,17 @@ import { PageState } from '../../../shared/page-state/page-state';
 
 @Component({
   selector: 'app-categories-page',
-  imports: [ReactiveFormsModule, DatePipe, PageState],
+  imports: [
+    ReactiveFormsModule,
+    FormsModule,
+    DatePipe,
+    ButtonModule,
+    InputTextModule,
+    SelectModule,
+    SelectButtonModule,
+    TagModule,
+    PageState,
+  ],
   templateUrl: './categories-page.html',
   styleUrl: './categories-page.scss',
 })
@@ -48,7 +63,21 @@ export class CategoriesPage implements OnInit, HasPendingChanges {
   protected readonly activeParentOptions = computed(() =>
     this.hierarchyOrder(this.categories()).filter((category) => category.status === 'active'),
   );
-  protected readonly applicabilityOptions: ReadonlyArray<{
+  protected readonly createParentSelectOptions = computed(() => [
+    { value: '', label: 'No parent (root)' },
+    ...this.activeParentOptions().map((category) => ({
+      value: category.id,
+      label: this.parentPath(category),
+    })),
+  ]);
+  protected readonly statusFilterOptions: Array<{
+    value: CategoryStatusFilter;
+    label: string;
+  }> = [
+    { value: 'active', label: 'Active' },
+    { value: 'archived', label: 'Archived' },
+  ];
+  protected readonly applicabilityOptions: Array<{
     value: CategoryApplicability;
     label: string;
   }> = [
@@ -215,6 +244,30 @@ export class CategoriesPage implements OnInit, HasPendingChanges {
     return this.activeParentOptions().filter((candidate) => !excludedIds.has(candidate.id));
   }
 
+  protected editParentSelectOptions(category: TransactionCategory): Array<{
+    value: string;
+    label: string;
+    disabled?: boolean;
+  }> {
+    const currentParent = this.parentCategory(category);
+    return [
+      { value: '', label: 'No parent (root)' },
+      ...(currentParent?.status === 'archived'
+        ? [
+            {
+              value: currentParent.id,
+              label: `${currentParent.name} (archived current parent)`,
+              disabled: true,
+            },
+          ]
+        : []),
+      ...this.parentOptions(category).map((candidate) => ({
+        value: candidate.id,
+        label: this.parentPath(candidate),
+      })),
+    ];
+  }
+
   protected parentPath(category: TransactionCategory): string {
     const names: string[] = [];
     const byId = this.categoryMap();
@@ -239,12 +292,6 @@ export class CategoriesPage implements OnInit, HasPendingChanges {
       parentId = byId.get(parentId)?.parentId ?? null;
     }
     return depth;
-  }
-
-  protected relationshipLabel(category: TransactionCategory): string {
-    if (!category.parentId) return 'Root category';
-    const parent = this.categoryMap().get(category.parentId);
-    return parent ? `Child of ${parent.name} (${parent.status})` : 'Parent category unavailable';
   }
 
   protected parentCategory(category: TransactionCategory): TransactionCategory | null {

@@ -56,18 +56,13 @@ label {
   font-size: 0.85rem;
   font-weight: 800;
 }
-input,
-select {
+.field > input,
+.field > p-select {
   width: 100%;
-  min-height: 2.75rem;
-  padding: 0.65rem 0.75rem;
-  border: 1px solid var(--color-border-strong);
-  border-radius: 0.6rem;
-  color: var(--color-text);
-  background: var(--color-canvas);
+  min-width: 0;
 }
 input[aria-invalid='true'],
-select[aria-invalid='true'] {
+p-select[aria-invalid='true'] {
   border-color: var(--color-negative);
 }
 .field-error {
@@ -81,132 +76,134 @@ select[aria-invalid='true'] {
 .form-error {
   grid-column: 1/-1;
 }
-.primary-button,
-.secondary-button,
-.text-button {
-  min-height: 2.75rem;
-  padding: 0.65rem 0.85rem;
-  border-radius: 0.6rem;
-  font: inherit;
-  font-weight: 800;
-  cursor: pointer;
-}
-.primary-button {
+.create-panel form > button {
   align-self: end;
-  border: 0;
-  color: white;
-  background: var(--color-primary);
-}
-.primary-button:disabled,
-.secondary-button:disabled,
-.text-button:disabled {
-  opacity: 0.6;
-  cursor: wait;
-}
-.secondary-button {
-  border: 1px solid var(--color-border-strong);
-  color: var(--color-text);
-  background: transparent;
-}
-.text-button {
-  border: 0;
-  color: var(--color-primary);
-  background: transparent;
 }
 .filters {
-  display: flex;
-  gap: 0.35rem;
   width: max-content;
-  margin-bottom: 1.25rem;
-  padding: 0.3rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.75rem;
-  background: var(--color-surface);
-}
-.filters button {
-  padding: 0.55rem 0.9rem;
-  border: 0;
-  border-radius: 0.5rem;
-  color: var(--color-muted);
-  background: transparent;
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-}
-.filters button.selected {
-  color: var(--color-primary);
-  background: var(--color-primary-soft);
+  margin-bottom: 0.85rem;
 }
 .category-tree {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.45rem;
 }
 .category-row {
+  position: relative;
   min-width: 0;
-  padding-inline-start: min(calc(var(--category-depth) * 1.4rem), 5.6rem);
+  padding-inline-start: min(calc(var(--category-depth) * 1rem), 3rem);
+}
+.category-row.child-row::before {
+  position: absolute;
+  top: -0.45rem;
+  bottom: 50%;
+  left: max(calc(min(var(--category-depth), 3) * 1rem - 0.55rem), 0.35rem);
+  width: 0.55rem;
+  border-bottom: 1px solid var(--color-border-strong);
+  border-left: 1px solid var(--color-border-strong);
+  border-bottom-left-radius: 0.45rem;
+  content: '';
 }
 .category-card {
   display: grid;
-  gap: 1rem;
+  grid-template-columns: minmax(12rem, 1.4fr) minmax(10rem, 0.75fr) auto;
+  gap: 0.8rem;
+  align-items: center;
   min-width: 0;
-  padding: 1.25rem;
+  min-height: 4.65rem;
+  padding: 0.7rem 0.85rem;
   border: 1px solid var(--color-border);
-  border-radius: 1rem;
+  border-inline-start: 3px solid var(--color-primary);
+  border-radius: 0.8rem;
   background: var(--color-surface);
+}
+.category-card.child-category {
+  border-inline-start-color: var(--color-border-strong);
+  background: color-mix(in srgb, var(--color-surface) 88%, var(--color-canvas));
 }
 .category-card.archived {
   border-style: dashed;
 }
-.category-card > header,
 .category-card > footer,
 .edit-form footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.75rem;
+}
+.category-card.editing {
+  display: block;
+  padding: 1rem;
+}
+.category-identity {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 0.7rem;
 }
 .category-icon {
   display: grid;
   place-items: center;
-  width: 2.35rem;
-  height: 2.35rem;
-  border-radius: 0.65rem;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.55rem;
   color: var(--color-primary);
   background: var(--color-primary-soft);
-  font-size: 1.2rem;
+  font-size: 1rem;
   font-weight: 900;
 }
-.status {
-  padding: 0.25rem 0.5rem;
-  border-radius: 999px;
-  color: var(--color-primary);
-  background: var(--color-primary-soft);
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
+.category-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+}
+.category-title-row,
+.category-meta {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 0.45rem;
+  flex-wrap: wrap;
 }
 .category-card h2 {
-  margin-top: 0.2rem;
-  font-size: 1.2rem;
+  margin-inline-end: 0.15rem;
+  font-size: 1rem;
   overflow-wrap: anywhere;
 }
 .category-note,
 .archived-at,
 .relationship {
-  font-size: 0.85rem;
+  font-size: 0.76rem;
 }
 .relationship {
-  margin-top: 0.35rem;
-  font-weight: 700;
+  display: flex;
+  gap: 0.35rem;
+  min-width: 0;
+  color: var(--color-muted);
+}
+.relationship span {
+  color: var(--color-primary);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.relationship strong {
+  color: var(--color-text);
+  overflow-wrap: anywhere;
 }
 .category-card > footer,
 .edit-form footer {
-  padding-top: 0.85rem;
-  border-top: 1px solid var(--color-border);
+  margin: 0;
 }
 .edit-form {
   display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(9rem, 0.55fr) minmax(12rem, 0.8fr) auto;
   gap: 1rem;
+  align-items: start;
+}
+.edit-form footer {
+  align-self: end;
 }
 @media (max-width: 64rem) {
   .create-panel {
@@ -217,24 +214,48 @@ select[aria-invalid='true'] {
   .create-panel form {
     grid-template-columns: 1fr 1fr;
   }
-  .create-panel .primary-button {
+  .create-panel form > button {
     grid-column: 1/-1;
+  }
+  .category-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .category-meta {
+    grid-column: 1 / -1;
+  }
+  .edit-form {
+    grid-template-columns: 1fr 1fr;
+  }
+  .edit-form footer {
+    grid-column: 1 / -1;
   }
 }
 @media (max-width: 40rem) {
   .create-panel form {
     grid-template-columns: 1fr;
   }
-  .create-panel .primary-button {
+  .create-panel form > button {
     grid-column: auto;
   }
   .filters {
     width: 100%;
   }
-  .filters button {
-    flex: 1;
-  }
   .category-row {
-    padding-inline-start: min(calc(var(--category-depth) * 0.75rem), 2.25rem);
+    padding-inline-start: min(calc(var(--category-depth) * 0.65rem), 1.3rem);
+  }
+  .category-row.child-row::before {
+    display: none;
+  }
+  .category-card {
+    grid-template-columns: 1fr;
+  }
+  .category-card > footer {
+    justify-content: flex-start;
+  }
+  .edit-form {
+    grid-template-columns: 1fr;
+  }
+  .edit-form footer {
+    grid-column: auto;
   }
 }
