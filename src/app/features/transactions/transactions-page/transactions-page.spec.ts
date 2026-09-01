@@ -117,6 +117,7 @@ describe('TransactionsPage', () => {
     const fixture = TestBed.createComponent(TransactionsPage);
     fixture.detectChanges();
     const component = fixture.componentInstance as any;
+    component.selectCreateMode('expense');
     component.create();
     fixture.detectChanges();
 
@@ -174,6 +175,7 @@ describe('TransactionsPage', () => {
     const fixture = TestBed.createComponent(TransactionsPage);
     fixture.detectChanges();
     const component = fixture.componentInstance as any;
+    component.selectCreateMode('expense');
     component.createForm.patchValue({
       accountId: 'account-1',
       amount: 12.5,
@@ -212,6 +214,7 @@ describe('TransactionsPage', () => {
     const fixture = TestBed.createComponent(TransactionsPage);
     fixture.detectChanges();
     const component = fixture.componentInstance as any;
+    component.selectCreateMode('expense');
     component.createForm.patchValue({
       accountId: 'account-1',
       amount: 10,
@@ -588,13 +591,23 @@ describe('TransactionsPage', () => {
     );
   });
 
-  it('uses one modern composer and keeps its activity mode explicit', () => {
+  it('keeps the activity composer collapsed until a mode is selected and toggles it closed', () => {
     const fixture = TestBed.createComponent(TransactionsPage);
     fixture.detectChanges();
     const component = fixture.componentInstance as any;
 
-    expect(fixture.nativeElement.textContent).toContain('Record an expense');
+    expect(component.createMode()).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Record an expense');
     expect(fixture.nativeElement.textContent).not.toContain('Move money between accounts');
+
+    component.selectCreateMode('expense');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Record an expense');
+
+    component.selectCreateMode('expense');
+    fixture.detectChanges();
+    expect(component.createMode()).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Record an expense');
 
     component.selectCreateMode('income');
     fixture.detectChanges();
@@ -626,8 +639,7 @@ describe('TransactionsPage', () => {
     const fixture = TestBed.createComponent(TransactionsPage);
     fixture.detectChanges();
 
-    const period = fixture.nativeElement.querySelector('#summary-period') as HTMLSelectElement;
-    expect(period.value).toBe('custom');
+    expect((fixture.componentInstance as any).summaryPeriod()).toBe('custom');
     expect(transactionsApi.search).toHaveBeenCalledWith(
       expect.objectContaining({
         from: '2026-08-01',
@@ -699,7 +711,7 @@ describe('TransactionsPage', () => {
     fixture.detectChanges();
     const component = fixture.componentInstance as any;
 
-    component.changePage(1);
+    component.onPageChange({ page: 1, first: 25, rows: 25, pageCount: 3 });
     expect(transactionsApi.search).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }));
 
     component.selectSort('amount');
@@ -829,6 +841,7 @@ describe('TransactionsPage', () => {
     const fixture = TestBed.createComponent(TransactionsPage);
     fixture.detectChanges();
     const component = fixture.componentInstance as any;
+    component.selectCreateMode('expense');
     component.createForm.setValue({
       accountId: 'account-1',
       amount: 12.5,

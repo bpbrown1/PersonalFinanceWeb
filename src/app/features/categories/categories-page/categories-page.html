@@ -15,6 +15,7 @@
     <div class="field">
       <label for="new-category-name">Category name</label
       ><input
+        pInputText
         id="new-category-name"
         type="text"
         formControlName="name"
@@ -45,29 +46,29 @@
       }
     </div>
     <div class="field">
-      <label for="new-category-applicability">Used for</label
-      ><select id="new-category-applicability" formControlName="applicability">
-        @for (option of applicabilityOptions; track option.value) {
-          <option [value]="option.value">{{ option.label }}</option>
-        }
-      </select>
+      <label for="new-category-applicability">Used for</label>
+      <p-select
+        inputId="new-category-applicability"
+        formControlName="applicability"
+        [options]="applicabilityOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
     </div>
     <div class="field">
-      <label for="new-category-parent">Parent category</label
-      ><select
-        id="new-category-parent"
+      <label for="new-category-parent">Parent category</label>
+      <p-select
+        inputId="new-category-parent"
         formControlName="parentId"
-        (change)="createError.set(null)"
+        [options]="createParentSelectOptions()"
+        optionLabel="label"
+        optionValue="value"
+        (onChange)="createError.set(null)"
         [attr.aria-invalid]="parentError(createError()) ? true : null"
         [attr.aria-describedby]="
           parentError(createError()) ? 'new-category-parent-error' : 'new-category-parent-help'
         "
-      >
-        <option value="">No parent (root)</option>
-        @for (category of activeParentOptions(); track category.id) {
-          <option [value]="category.id">{{ parentPath(category) }}</option>
-        }
-      </select>
+      />
       <p id="new-category-parent-help" class="field-help">Only active categories can be parents.</p>
       @if (parentError(createError())) {
         <p id="new-category-parent-error" class="field-error" role="alert">
@@ -75,7 +76,7 @@
         </p>
       }
     </div>
-    <button type="submit" class="primary-button" [disabled]="mutationBusy()">
+    <button pButton type="submit" [disabled]="mutationBusy()">
       {{ createSubmission.busy() ? 'Adding…' : 'Add category' }}
     </button>
     @if (formError(createError())) {
@@ -85,22 +86,14 @@
 </section>
 
 <nav class="filters" aria-label="Category status">
-  <button
-    type="button"
-    [class.selected]="filter() === 'active'"
-    [attr.aria-pressed]="filter() === 'active'"
-    (click)="selectFilter('active')"
-  >
-    Active
-  </button>
-  <button
-    type="button"
-    [class.selected]="filter() === 'archived'"
-    [attr.aria-pressed]="filter() === 'archived'"
-    (click)="selectFilter('archived')"
-  >
-    Archived
-  </button>
+  <p-selectbutton
+    [options]="statusFilterOptions"
+    optionLabel="label"
+    optionValue="value"
+    [ngModel]="filter()"
+    [allowEmpty]="false"
+    (ngModelChange)="selectFilter($event)"
+  />
 </nav>
 
 @if (loading()) {
@@ -132,10 +125,14 @@
     @for (category of visibleCategories(); track category.id) {
       <div
         class="category-row"
+        [class.child-row]="!!category.parentId"
         [style.--category-depth]="hierarchyDepth(category)"
       >
         <article
           class="category-card"
+          [class.root-category]="!category.parentId"
+          [class.child-category]="!!category.parentId"
+          [class.editing]="editingId() === category.id"
           [class.archived]="category.status === 'archived'"
           [attr.aria-label]="parentPath(category)"
         >
@@ -149,6 +146,7 @@
               <div class="field">
                 <label [for]="'edit-category-name-' + category.id">Category name</label
                 ><input
+                  pInputText
                   [id]="'edit-category-name-' + category.id"
                   type="text"
                   formControlName="name"
@@ -174,34 +172,27 @@
                 }
               </div>
               <div class="field">
-                <label [for]="'edit-category-applicability-' + category.id">Used for</label
-                ><select
-                  [id]="'edit-category-applicability-' + category.id"
+                <label [for]="'edit-category-applicability-' + category.id">Used for</label>
+                <p-select
+                  [inputId]="'edit-category-applicability-' + category.id"
                   formControlName="applicability"
-                >
-                  @for (option of applicabilityOptions; track option.value) {
-                    <option [value]="option.value">{{ option.label }}</option>
-                  }
-                </select>
+                  [options]="applicabilityOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                />
               </div>
               <div class="field">
-                <label [for]="'edit-category-parent-' + category.id">Parent category</label
-                ><select
-                  [id]="'edit-category-parent-' + category.id"
+                <label [for]="'edit-category-parent-' + category.id">Parent category</label>
+                <p-select
+                  [inputId]="'edit-category-parent-' + category.id"
                   formControlName="parentId"
-                  (change)="editError.set(null)"
+                  [options]="editParentSelectOptions(category)"
+                  optionLabel="label"
+                  optionValue="value"
+                  optionDisabled="disabled"
+                  (onChange)="editError.set(null)"
                   [attr.aria-invalid]="parentError(editError()) ? true : null"
-                >
-                  <option value="">No parent (root)</option>
-                  @if (parentCategory(category)?.status === 'archived') {
-                    <option [value]="category.parentId" disabled>
-                      {{ parentCategory(category)!.name }} (archived current parent)
-                    </option>
-                  }
-                  @for (candidate of parentOptions(category); track candidate.id) {
-                    <option [value]="candidate.id">{{ parentPath(candidate) }}</option>
-                  }
-                </select>
+                />
                 <p class="field-help">This category and its descendants cannot be selected.</p>
                 @if (parentError(editError())) {
                   <p class="field-error" role="alert">{{ parentError(editError()) }}</p>
@@ -212,43 +203,64 @@
               }
               <footer>
                 <button
+                  pButton
                   type="button"
-                  class="text-button"
+                  [text]="true"
                   [disabled]="editSubmission.busy()"
                   (click)="cancelEdit()"
                 >
                   Cancel</button
-                ><button type="submit" class="primary-button" [disabled]="mutationBusy()">
+                ><button pButton type="submit" [disabled]="mutationBusy()">
                   {{ editSubmission.busy() ? 'Saving…' : 'Save' }}
                 </button>
               </footer>
             </form>
           } @else {
-            <header>
+            <header class="category-identity">
               <span class="category-icon" aria-hidden="true">{{
                 category.applicability === 'income'
                   ? '↑'
                   : category.applicability === 'expense'
                     ? '↓'
                     : '↕'
-              }}</span
-              ><span class="status">{{ category.status }}</span>
+              }}</span>
+              <div class="category-copy">
+                <div class="category-title-row">
+                  <h2>{{ category.name }}</h2>
+                  <p-tag
+                    [value]="category.parentId ? 'Child' : 'Root'"
+                    [severity]="category.parentId ? 'secondary' : 'info'"
+                  />
+                  <p-tag
+                    [value]="category.status"
+                    [severity]="category.status === 'active' ? 'success' : 'secondary'"
+                  />
+                </div>
+                <p class="relationship">
+                  <span>{{ category.parentId ? 'Parent' : 'Hierarchy' }}</span>
+                  <strong>
+                    @if (parentCategory(category); as parent) {
+                      {{ parentPath(parent) }}
+                    } @else {
+                      Top-level category
+                    }
+                  </strong>
+                </p>
+              </div>
             </header>
-            <div>
+            <div class="category-meta">
               <p class="applicability">{{ applicabilityLabel(category.applicability) }}</p>
-              <h2>{{ category.name }}</h2>
-              <p class="relationship">{{ relationshipLabel(category) }}</p>
+              <p class="category-note">
+                {{
+                  category.status === 'archived'
+                    ? 'Retained for history'
+                    : 'Available for transactions'
+                }}
+              </p>
+              @if (category.archivedAt) {
+                <p class="archived-at">Archived {{ category.archivedAt | date: 'mediumDate' }}</p>
+              }
             </div>
-            <p class="category-note">
-              {{
-                category.status === 'archived'
-                  ? 'Retained for existing transaction history.'
-                  : 'Available for new transaction activity.'
-              }}
-            </p>
-            @if (category.archivedAt) {
-              <p class="archived-at">Archived {{ category.archivedAt | date: 'mediumDate' }}</p>
-            }
             @if (lifecycleError()?.id === category.id) {
               <p class="field-error" role="alert">
                 {{ lifecycleErrorMessage(lifecycleError()!.error) }}
@@ -256,8 +268,9 @@
             }
             <footer>
               <button
+                pButton
                 type="button"
-                class="text-button"
+                [text]="true"
                 [disabled]="mutationBusy()"
                 (click)="startEdit(category)"
               >
@@ -265,8 +278,10 @@
               </button>
               @if (category.status === 'active') {
                 <button
+                  pButton
                   type="button"
-                  class="secondary-button"
+                  [outlined]="true"
+                  severity="secondary"
                   [disabled]="mutationBusy()"
                   (click)="archive(category)"
                 >
@@ -274,8 +289,10 @@
                 </button>
               } @else {
                 <button
+                  pButton
                   type="button"
-                  class="secondary-button"
+                  [outlined]="true"
+                  severity="secondary"
                   [disabled]="mutationBusy()"
                   (click)="restore(category)"
                 >

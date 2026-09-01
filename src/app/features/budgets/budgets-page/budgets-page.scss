@@ -42,7 +42,6 @@ form footer {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.planning-note,
 .status-pill {
   padding: 0.42rem 0.65rem;
   border-radius: 999px;
@@ -108,22 +107,11 @@ legend span {
   color: var(--color-muted);
   font-size: 0.72rem;
 }
-input,
-select {
+.field > input,
+.field > p-select,
+.field > p-inputnumber {
   width: 100%;
   min-width: 0;
-  min-height: 2.8rem;
-  padding: 0.65rem 0.75rem;
-  border: 1px solid var(--color-border-strong);
-  border-radius: 0.7rem;
-  color: var(--color-text);
-  background: var(--color-canvas);
-}
-input:focus,
-select:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-soft);
-  outline: 0;
 }
 .initial-lines {
   margin: 1rem 0 0;
@@ -166,21 +154,8 @@ select:focus {
 .line-number {
   margin-top: 1.45rem;
 }
-.remove-button,
-.icon-button {
-  display: grid;
-  place-items: center;
-  width: 2.3rem;
-  height: 2.3rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.6rem;
-  color: var(--color-text);
-  background: transparent;
-  cursor: pointer;
-}
 .remove-button {
   margin-top: 1.2rem;
-  color: var(--color-negative);
   font-size: 1.2rem;
 }
 .planned-total {
@@ -202,46 +177,10 @@ select:focus {
   justify-content: flex-end;
   margin-top: 1rem;
 }
-.primary-button,
-.secondary-button,
-.text-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2.65rem;
-  padding: 0.62rem 0.95rem;
-  border-radius: 0.7rem;
-  font-weight: 800;
-  cursor: pointer;
-}
-.primary-button {
-  border: 1px solid var(--color-primary);
-  color: #fff;
-  background: var(--color-primary);
-}
-.secondary-button {
-  border: 1px solid var(--color-border-strong);
-  color: var(--color-text);
-  background: var(--color-surface);
-}
-.text-button {
-  border: 1px solid transparent;
-  color: var(--color-primary);
-  background: transparent;
-}
-.danger {
-  color: var(--color-negative);
-  border-color: var(--color-negative);
-}
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
 .filters {
   display: flex;
   gap: 0.35rem;
   width: max-content;
-  margin-bottom: 1rem;
   padding: 0.3rem;
   border: 1px solid var(--color-border);
   border-radius: 0.8rem;
@@ -374,33 +313,14 @@ button:disabled {
   color: var(--color-muted);
   font-size: 0.75rem;
 }
-.progress-track {
+.budget-progress-bar {
   width: 100%;
   height: 0.75rem;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--color-border);
 }
-.progress-track > span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--color-positive);
-}
-.progress-track.compact {
+.budget-progress-bar.compact {
   width: 8rem;
   height: 0.45rem;
   margin-top: 0.3rem;
-}
-.approaching .progress-track > span {
-  background: color-mix(in srgb, var(--color-negative) 52%, var(--color-primary));
-}
-.at_limit .progress-track > span,
-.over_budget .progress-track > span {
-  background: var(--color-negative);
-}
-.no_plan .progress-track > span {
-  background: var(--color-muted);
 }
 .progress-caption,
 .spending-breakdown,
@@ -442,6 +362,9 @@ button:disabled {
 }
 .progress-controls .field {
   min-width: 9rem;
+}
+.progress-controls p-select {
+  width: 100%;
 }
 .progress-table-wrap {
   max-width: 100%;
@@ -619,10 +542,6 @@ form footer {
     align-items: stretch;
     flex-direction: column;
   }
-  .planning-note {
-    width: max-content;
-    max-width: 100%;
-  }
   .progress-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -708,7 +627,7 @@ form footer {
   .unbudgeted-section li {
     grid-template-columns: 1fr auto;
   }
-  .unbudgeted-section li .text-button {
+  .unbudgeted-section li .unbudgeted-action {
     grid-column: 1 / -1;
     justify-self: start;
   }

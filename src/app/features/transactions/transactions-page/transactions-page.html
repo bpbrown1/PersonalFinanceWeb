@@ -10,13 +10,15 @@
   <div>
     <p class="eyebrow">Quick entry</p>
     <h2 id="new-activity-heading">New activity</h2>
-    <p>Choose what happened, then add the details below.</p>
+    <p>Choose what happened to open the details. Select it again to close the form.</p>
   </div>
   <nav class="activity-modes" aria-label="New activity type">
     <button
       type="button"
       [class.selected]="createMode() === 'expense'"
       [attr.aria-pressed]="createMode() === 'expense'"
+      [attr.aria-expanded]="createMode() === 'expense'"
+      aria-controls="transaction-create-form"
       (click)="selectCreateMode('expense')"
     >
       <span aria-hidden="true">↓</span>
@@ -26,6 +28,8 @@
       type="button"
       [class.selected]="createMode() === 'income'"
       [attr.aria-pressed]="createMode() === 'income'"
+      [attr.aria-expanded]="createMode() === 'income'"
+      aria-controls="transaction-create-form"
       (click)="selectCreateMode('income')"
     >
       <span aria-hidden="true">↑</span>
@@ -35,6 +39,8 @@
       type="button"
       [class.selected]="createMode() === 'transfer'"
       [attr.aria-pressed]="createMode() === 'transfer'"
+      [attr.aria-expanded]="createMode() === 'transfer'"
+      aria-controls="transfer-create-form"
       (click)="selectCreateMode('transfer')"
     >
       <span aria-hidden="true">⇄</span>
@@ -43,8 +49,12 @@
   </nav>
 </section>
 
-@if (createMode() !== 'transfer') {
-  <section class="create-panel transaction-form" aria-labelledby="record-heading">
+@if (createMode() === 'expense' || createMode() === 'income') {
+  <section
+    id="transaction-create-form"
+    class="create-panel transaction-form"
+    aria-labelledby="record-heading"
+  >
     <div>
       <span class="composer-icon" [class.income]="createMode() === 'income'" aria-hidden="true">
         {{ createMode() === 'income' ? '↑' : '↓' }}
@@ -341,8 +351,12 @@
       }
     </form>
   </section>
-} @else {
-  <section class="create-panel transaction-form" aria-labelledby="transfer-heading">
+} @else if (createMode() === 'transfer') {
+  <section
+    id="transfer-create-form"
+    class="create-panel transaction-form"
+    aria-labelledby="transfer-heading"
+  >
     <div>
       <span class="composer-icon transfer" aria-hidden="true">⇄</span>
       <h2 id="transfer-heading">Move money between accounts</h2>
@@ -601,23 +615,21 @@
       <div class="summary-controls">
         <div class="field">
           <label for="summary-period">Period</label>
-          <select
-            #summaryPeriodSelect
-            id="summary-period"
-            [value]="summaryPeriod()"
-            (change)="selectSummaryPeriod(summaryPeriodSelect.value)"
-          >
-            @for (option of summaryPeriodOptions; track option.value) {
-              <option [value]="option.value" [selected]="summaryPeriod() === option.value">
-                {{ option.label }}
-              </option>
-            }
-          </select>
+          <p-select
+            inputId="summary-period"
+            [options]="summaryPeriodOptions"
+            optionLabel="label"
+            optionValue="value"
+            [ngModel]="summaryPeriod()"
+            [ngModelOptions]="{ standalone: true }"
+            (onChange)="selectSummaryPeriod($event.value)"
+          />
         </div>
         @if (summaryPeriod() === 'custom') {
           <div class="field">
             <label for="summary-from">From</label>
             <input
+              pInputText
               #summaryFrom
               id="summary-from"
               type="date"
@@ -629,6 +641,7 @@
           <div class="field">
             <label for="summary-to">To</label>
             <input
+              pInputText
               #summaryTo
               id="summary-to"
               type="date"
@@ -654,8 +667,11 @@
         <p>Search the complete ledger with filters that can be combined.</p>
       </div>
       <button
+        pButton
         type="button"
-        class="secondary-button filter-toggle"
+        class="filter-toggle"
+        severity="secondary"
+        [outlined]="true"
         [attr.aria-expanded]="filtersExpanded()"
         aria-controls="advanced-transaction-filters"
         (click)="filtersExpanded.set(!filtersExpanded())"
@@ -668,6 +684,7 @@
       <div class="field search-text">
         <label for="transaction-search">Search transactions</label>
         <input
+          pInputText
           #transactionSearch
           id="transaction-search"
           type="search"
@@ -677,7 +694,13 @@
         />
       </div>
       @if (activeSearchFilterCount()) {
-        <button type="button" class="text-button clear-filters" (click)="clearSearchFilters()">
+        <button
+          pButton
+          type="button"
+          class="clear-filters"
+          [text]="true"
+          (click)="clearSearchFilters()"
+        >
           Clear filters
         </button>
       }
@@ -687,74 +710,66 @@
       <div id="advanced-transaction-filters" class="advanced-filters">
         <div class="field">
           <label for="search-account">Account</label>
-          <select
-            #searchAccount
-            id="search-account"
-            [value]="searchAccountId()"
-            (change)="setSearchAccount(searchAccount.value)"
-          >
-            <option value="" [selected]="!searchAccountId()">All accounts</option>
-            @for (account of accounts(); track account.id) {
-              <option [value]="account.id" [selected]="searchAccountId() === account.id">
-                {{ account.name }} · {{ account.currency
-                }}{{ account.status === 'archived' ? ' (archived)' : '' }}
-              </option>
-            }
-          </select>
+          <p-select
+            inputId="search-account"
+            [options]="searchAccountOptions()"
+            optionLabel="label"
+            optionValue="value"
+            [ngModel]="searchAccountId()"
+            [ngModelOptions]="{ standalone: true }"
+            (onChange)="setSearchAccount($event.value)"
+          />
         </div>
         <div class="field">
           <label for="search-category">Category</label>
-          <select
-            #searchCategory
-            id="search-category"
-            [value]="searchCategoryId()"
-            (change)="setSearchCategory(searchCategory.value)"
-          >
-            <option value="" [selected]="!searchCategoryId()">All categories</option>
-            @for (category of categories(); track category.id) {
-              <option [value]="category.id" [selected]="searchCategoryId() === category.id">
-                {{ category.name }}{{ category.status === 'archived' ? ' (archived)' : '' }}
-              </option>
-            }
-          </select>
+          <p-select
+            inputId="search-category"
+            [options]="searchCategoryOptions()"
+            optionLabel="label"
+            optionValue="value"
+            [ngModel]="searchCategoryId()"
+            [ngModelOptions]="{ standalone: true }"
+            (onChange)="setSearchCategory($event.value)"
+          />
         </div>
         <div class="field">
           <label for="search-type">Type</label>
-          <select
-            #searchTypeSelect
-            id="search-type"
-            [value]="searchType()"
-            (change)="setSearchType(searchTypeSelect.value)"
-          >
-            <option value="">All types</option>
-            <option value="income">Income</option>
-            <option value="expense">Expense</option>
-            <option value="transfer_out">Transfer out</option>
-            <option value="transfer_in">Transfer in</option>
-          </select>
+          <p-select
+            inputId="search-type"
+            [options]="searchTypeOptions"
+            optionLabel="label"
+            optionValue="value"
+            [ngModel]="searchType()"
+            [ngModelOptions]="{ standalone: true }"
+            (onChange)="setSearchType($event.value)"
+          />
         </div>
         <div class="field">
           <label for="search-min-amount">Minimum amount</label>
-          <input
-            #searchMinAmountInput
-            id="search-min-amount"
-            type="number"
-            min="0"
-            step="0.01"
-            [value]="searchMinAmount()"
-            (change)="setSearchMinAmount(searchMinAmountInput.value)"
+          <p-inputnumber
+            inputId="search-min-amount"
+            mode="decimal"
+            [min]="0"
+            [minFractionDigits]="0"
+            [maxFractionDigits]="2"
+            [useGrouping]="false"
+            [ngModel]="searchMinAmount() ? +searchMinAmount() : null"
+            [ngModelOptions]="{ standalone: true }"
+            (onInput)="setSearchMinAmount($event.value === null ? '' : $event.value.toString())"
           />
         </div>
         <div class="field">
           <label for="search-max-amount">Maximum amount</label>
-          <input
-            #searchMaxAmountInput
-            id="search-max-amount"
-            type="number"
-            min="0"
-            step="0.01"
-            [value]="searchMaxAmount()"
-            (change)="setSearchMaxAmount(searchMaxAmountInput.value)"
+          <p-inputnumber
+            inputId="search-max-amount"
+            mode="decimal"
+            [min]="0"
+            [minFractionDigits]="0"
+            [maxFractionDigits]="2"
+            [useGrouping]="false"
+            [ngModel]="searchMaxAmount() ? +searchMaxAmount() : null"
+            [ngModelOptions]="{ standalone: true }"
+            (onInput)="setSearchMaxAmount($event.value === null ? '' : $event.value.toString())"
           />
         </div>
       </div>
@@ -800,20 +815,6 @@
           {{ transactionPage().totalElements === 1 ? 'transaction' : 'transactions' }}
         </h2>
       </div>
-      <label class="page-size" for="transaction-page-size">
-        Rows
-        <select
-          #pageSizeSelect
-          id="transaction-page-size"
-          [value]="searchSize()"
-          (change)="setPageSize(pageSizeSelect.value)"
-        >
-          <option value="10">10</option>
-          <option value="25">25</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-      </label>
     </header>
     <div class="transaction-table-wrap">
       <table class="transaction-table">
@@ -892,28 +893,16 @@
         </tbody>
       </table>
     </div>
-    <footer class="pagination" aria-label="Transaction pagination">
-      <p>Showing {{ pageStart() }}–{{ pageEnd() }} of {{ transactionPage().totalElements }}</p>
-      <div>
-        <button
-          type="button"
-          class="secondary-button"
-          [disabled]="!canGoPrevious()"
-          (click)="changePage(searchPage() - 1)"
-        >
-          Previous
-        </button>
-        <span>Page {{ transactionPage().page + 1 }} of {{ transactionPage().totalPages }}</span>
-        <button
-          type="button"
-          class="secondary-button"
-          [disabled]="!canGoNext()"
-          (click)="changePage(searchPage() + 1)"
-        >
-          Next
-        </button>
-      </div>
-    </footer>
+    <p-paginator
+      aria-label="Transaction pagination"
+      [first]="searchPage() * searchSize()"
+      [rows]="searchSize()"
+      [totalRecords]="transactionPage().totalElements"
+      [rowsPerPageOptions]="pageSizeOptions"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="Showing {first}–{last} of {totalRecords}"
+      (onPageChange)="onPageChange($event)"
+    />
   </section>
 
   @if (detailLoading()) {

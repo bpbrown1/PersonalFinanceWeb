@@ -216,9 +216,7 @@ textarea {
 .search-header,
 .results-header,
 .detail-heading,
-.search-primary,
-.pagination,
-.pagination > div {
+.search-primary {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -255,15 +253,10 @@ textarea {
   padding-top: 1rem;
   border-top: 1px solid var(--color-border);
 }
-.page-size {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--color-muted);
-  font-size: 0.8rem;
-}
-.page-size select {
-  min-width: 4.5rem;
+.field > p-select,
+.field > p-inputnumber {
+  width: 100%;
+  min-width: 0;
 }
 .transaction-table-wrap {
   overflow: hidden;
@@ -354,13 +347,8 @@ textarea {
   text-align: right !important;
   white-space: nowrap;
 }
-.pagination {
+.results-panel > p-paginator {
   margin-top: 1rem;
-  color: var(--color-muted);
-  font-size: 0.82rem;
-}
-.pagination p {
-  margin: 0;
 }
 .detail-heading {
   margin-top: 1.25rem;
@@ -562,9 +550,7 @@ dd {
   .search-header,
   .results-header,
   .detail-heading,
-  .search-primary,
-  .pagination,
-  .pagination > div {
+  .search-primary {
     align-items: stretch;
     flex-direction: column;
   }
@@ -574,9 +560,6 @@ dd {
   }
   .advanced-filters {
     grid-template-columns: 1fr;
-  }
-  .page-size {
-    justify-content: space-between;
   }
   .transaction-table-wrap {
     overflow: visible;
@@ -618,10 +601,6 @@ dd {
     font-size: 0.72rem;
     font-weight: 800;
     text-transform: uppercase;
-  }
-  .pagination > div {
-    gap: 0.6rem;
-    text-align: center;
   }
   .summary-controls {
     align-items: stretch;
