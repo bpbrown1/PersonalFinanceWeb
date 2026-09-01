@@ -4,7 +4,7 @@
     <h1>Budgets</h1>
     <p>Create monthly category plans and keep every planned dollar visible.</p>
   </div>
-  <button type="button" class="primary-button header-action" (click)="openCreate()">
+  <button pButton type="button" class="header-action" (click)="openCreate()">
     <span aria-hidden="true">＋</span>
     New budget
   </button>
@@ -22,7 +22,7 @@
       <div class="budget-fields">
         <div class="field name-field">
           <label for="budget-name">Budget name <span>(required)</span></label>
-          <input id="budget-name" formControlName="name" maxlength="100" />
+          <input pInputText id="budget-name" formControlName="name" maxlength="100" />
           @if (createForm.controls.name.touched && createForm.controls.name.invalid) {
             <p class="field-error">Enter a budget name.</p>
           } @else if (fieldError(createError(), 'name')) {
@@ -31,7 +31,7 @@
         </div>
         <div class="field">
           <label for="budget-month">Month <span>(required)</span></label>
-          <input id="budget-month" type="month" formControlName="month" />
+          <input pInputText id="budget-month" type="month" formControlName="month" />
           @if (fieldError(createError(), 'startDate') || fieldError(createError(), 'endDate')) {
             <p class="field-error" role="alert">
               {{ fieldError(createError(), 'startDate') || fieldError(createError(), 'endDate') }}
@@ -41,6 +41,7 @@
         <div class="field">
           <label for="budget-currency">Currency <span>(required)</span></label>
           <input
+            pInputText
             id="budget-currency"
             formControlName="currency"
             maxlength="3"
@@ -58,19 +59,23 @@
         <legend>Category targets <span>(optional)</span></legend>
         <div class="lines-heading">
           <p>Add targets now, or create the budget and add them later.</p>
-          <button type="button" class="text-button" (click)="addInitialLine()">Add category</button>
+          <button pButton type="button" [text]="true" (click)="addInitialLine()">
+            Add category
+          </button>
         </div>
         @for (line of createForm.controls.lines.controls; track line; let index = $index) {
           <div class="initial-line" [formGroupName]="index">
             <span class="line-number">{{ index + 1 }}</span>
             <div class="field">
               <label [for]="'initial-category-' + index">Category</label>
-              <select [id]="'initial-category-' + index" formControlName="categoryId">
-                <option value="">Select an expense category</option>
-                @for (category of initialCategoryOptions(index); track category.id) {
-                  <option [value]="category.id">{{ category.name }}</option>
-                }
-              </select>
+              <p-select
+                [inputId]="'initial-category-' + index"
+                formControlName="categoryId"
+                [options]="initialCategorySelectOptions(index)"
+                optionLabel="label"
+                optionValue="value"
+                placeholder="Select an expense category"
+              />
               @if (line.touched && initialLineIncomplete(index)) {
                 <p class="field-error">Choose a category and enter an amount.</p>
               } @else if (initialLineDuplicate(index)) {
@@ -79,13 +84,14 @@
             </div>
             <div class="field">
               <label [for]="'initial-amount-' + index">Planned amount</label>
-              <input
-                [id]="'initial-amount-' + index"
-                type="number"
-                min="0"
-                step="0.01"
-                inputmode="decimal"
+              <p-inputnumber
+                [inputId]="'initial-amount-' + index"
                 formControlName="plannedAmount"
+                mode="decimal"
+                [min]="0"
+                [minFractionDigits]="0"
+                [maxFractionDigits]="2"
+                [useGrouping]="false"
               />
               @if (
                 line.controls.plannedAmount.touched &&
@@ -96,8 +102,13 @@
               }
             </div>
             <button
+              pButton
               type="button"
               class="remove-button"
+              [text]="true"
+              [rounded]="true"
+              [iconOnly]="true"
+              severity="danger"
               [attr.aria-label]="'Remove category target ' + (index + 1)"
               (click)="removeInitialLine(index)"
             >
@@ -120,8 +131,8 @@
         @if (formError(createError())) {
           <p class="field-error" role="alert">{{ formError(createError()) }}</p>
         }
-        <button type="button" class="text-button" (click)="cancelCreate()">Cancel</button>
-        <button class="primary-button" type="submit" [disabled]="mutationBusy()">
+        <button pButton type="button" [text]="true" (click)="cancelCreate()">Cancel</button>
+        <button pButton type="submit" [disabled]="mutationBusy()">
           {{ createSubmission.busy() ? 'Creating…' : 'Create budget' }}
         </button>
       </div>
@@ -235,7 +246,9 @@
         <span>Active planned total</span>
         <strong>{{ budget.totalPlanned | currency: budget.currency }}</strong>
       </div>
-      <button type="button" class="text-button close-button" (click)="closeDetails()">Close</button>
+      <button pButton type="button" class="close-button" [text]="true" (click)="closeDetails()">
+        Close
+      </button>
     </header>
 
     <nav class="detail-tabs" aria-label="Budget details">
@@ -275,7 +288,12 @@
           </div>
           <div class="field">
             <label for="copy-target-month">Target month</label>
-            <input id="copy-target-month" type="month" formControlName="targetMonth" />
+            <input
+              pInputText
+              id="copy-target-month"
+              type="month"
+              formControlName="targetMonth"
+            />
             @if (copyTargetSame(budget)) {
               <p class="field-error">Choose a month other than the source month.</p>
             }
@@ -292,19 +310,15 @@
               <span class="drag-position">{{ index + 1 }}</span>
               <div class="field">
                 <label [for]="'copy-category-' + index">Category</label>
-                <select [id]="'copy-category-' + index" formControlName="categoryId">
-                  <option value="">Select an expense category</option>
-                  @for (category of copyCategoryOptions(index); track category.id) {
-                    <option
-                      [value]="category.id"
-                      [disabled]="
-                        category.status !== 'active' || category.applicability === 'income'
-                      "
-                    >
-                      {{ category.name }}{{ category.status !== 'active' ? ' (unavailable)' : '' }}
-                    </option>
-                  }
-                </select>
+                <p-select
+                  [inputId]="'copy-category-' + index"
+                  formControlName="categoryId"
+                  [options]="copyCategorySelectOptions(index)"
+                  optionLabel="label"
+                  optionValue="value"
+                  optionDisabled="disabled"
+                  placeholder="Select an expense category"
+                />
                 @if (fieldError(copyError(), 'lines[' + index + '].categoryId')) {
                   <p class="field-error">
                     {{ fieldError(copyError(), 'lines[' + index + '].categoryId') }}
@@ -313,12 +327,14 @@
               </div>
               <div class="field">
                 <label [for]="'copy-amount-' + index">Planned amount</label>
-                <input
-                  [id]="'copy-amount-' + index"
-                  type="number"
-                  min="0"
-                  step="0.01"
+                <p-inputnumber
+                  [inputId]="'copy-amount-' + index"
                   formControlName="plannedAmount"
+                  mode="decimal"
+                  [min]="0"
+                  [minFractionDigits]="0"
+                  [maxFractionDigits]="2"
+                  [useGrouping]="false"
                 />
                 @if (fieldError(copyError(), 'lines[' + index + '].plannedAmount')) {
                   <p class="field-error">
@@ -328,8 +344,12 @@
               </div>
               <div class="copy-line-actions line-actions">
                 <button
+                  pButton
                   type="button"
-                  class="icon-button"
+                  severity="secondary"
+                  [outlined]="true"
+                  [rounded]="true"
+                  [iconOnly]="true"
                   [disabled]="index === 0"
                   [attr.aria-label]="'Move copy line ' + (index + 1) + ' up'"
                   (click)="moveCopyLine(index, -1)"
@@ -337,15 +357,25 @@
                   ↑
                 </button>
                 <button
+                  pButton
                   type="button"
-                  class="icon-button"
+                  severity="secondary"
+                  [outlined]="true"
+                  [rounded]="true"
+                  [iconOnly]="true"
                   [disabled]="index === copyForm.controls.lines.length - 1"
                   [attr.aria-label]="'Move copy line ' + (index + 1) + ' down'"
                   (click)="moveCopyLine(index, 1)"
                 >
                   ↓
                 </button>
-                <button type="button" class="text-button danger" (click)="removeCopyLine(index)">
+                <button
+                  pButton
+                  type="button"
+                  [text]="true"
+                  severity="danger"
+                  (click)="removeCopyLine(index)"
+                >
                   Remove
                 </button>
               </div>
@@ -363,22 +393,34 @@
             <p class="field-error" role="alert">{{ fieldError(copyError(), 'lines') }}</p>
           }
         </fieldset>
-        <button type="button" class="secondary-button add-copy-line" (click)="addCopyLine()">
+        <button
+          pButton
+          type="button"
+          class="add-copy-line"
+          severity="secondary"
+          [outlined]="true"
+          (click)="addCopyLine()"
+        >
           Add category target
         </button>
         @if (formError(copyError())) {
           <div class="copy-error" role="alert">
             <p class="field-error">{{ formError(copyError()) }}</p>
             @if (copyError()?.existingBudgetId; as existingId) {
-              <button type="button" class="text-button" (click)="openExistingBudget(existingId)">
+              <button
+                pButton
+                type="button"
+                [text]="true"
+                (click)="openExistingBudget(existingId)"
+              >
                 Open existing budget
               </button>
             }
           </div>
         }
         <footer>
-          <button type="button" class="text-button" (click)="cancelCopy()">Cancel</button>
-          <button type="submit" class="primary-button" [disabled]="copySubmission.busy()">
+          <button pButton type="button" [text]="true" (click)="cancelCopy()">Cancel</button>
+          <button pButton type="submit" [disabled]="copySubmission.busy()">
             {{ copySubmission.busy() ? 'Copying…' : 'Confirm independent copy' }}
           </button>
         </footer>
@@ -397,8 +439,10 @@
           </p>
         </div>
         <button
+          pButton
           type="button"
-          class="secondary-button"
+          severity="secondary"
+          [outlined]="true"
           [disabled]="progressLoading()"
           (click)="loadProgress(budget.id)"
         >
@@ -442,17 +486,13 @@
               <strong>{{ progressStatusLabel(data) }}</strong>
             </div>
           </div>
-          <div
-            class="progress-track"
-            role="progressbar"
+          <p-progressbar
+            class="budget-progress-bar"
             aria-label="Overall budget used"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            [attr.aria-valuenow]="visualPercentage(data.percentageUsed)"
-            [attr.aria-valuetext]="percentageLabel(data.percentageUsed)"
-          >
-            <span [style.width.%]="visualPercentage(data.percentageUsed)"></span>
-          </div>
+            [value]="visualPercentage(data.percentageUsed)"
+            [showValue]="false"
+            [color]="progressColor(data)"
+          />
           <div class="progress-caption">
             <strong>{{ percentageLabel(data.percentageUsed) }}</strong>
             <span>{{ progressStatusLabel(data) }}</span>
@@ -468,7 +508,7 @@
                 data.unbudgetedActual | currency: data.currency
               }}</strong>
             </div>
-            <button type="button" class="text-button" (click)="openDrillDown(data.drillDown)">
+            <button pButton type="button" [text]="true" (click)="openDrillDown(data.drillDown)">
               Review period activity
             </button>
           </div>
@@ -483,40 +523,36 @@
             <div class="progress-controls">
               <div class="field">
                 <label for="progress-status-filter">Status</label>
-                <select
-                  #progressStatusSelect
-                  id="progress-status-filter"
-                  [value]="progressStatusFilter()"
-                  (change)="setProgressStatusFilter(progressStatusSelect.value)"
-                >
-                  <option value="all">All statuses</option>
-                  <option value="on_track">On track</option>
-                  <option value="approaching">Approaching limit</option>
-                  <option value="at_limit">At limit</option>
-                  <option value="over_budget">Over budget</option>
-                  <option value="no_plan">No plan</option>
-                </select>
+                <p-select
+                  inputId="progress-status-filter"
+                  [options]="progressStatusOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                  [ngModel]="progressStatusFilter()"
+                  [ngModelOptions]="{ standalone: true }"
+                  (onChange)="setProgressStatusFilter($event.value)"
+                />
               </div>
               <div class="field">
                 <label for="progress-sort">Sort by</label>
-                <select
-                  #progressSortSelect
-                  id="progress-sort"
-                  [value]="progressSort()"
-                  (change)="setProgressSort(progressSortSelect.value)"
-                >
-                  <option value="position">Plan order</option>
-                  <option value="category">Category</option>
-                  <option value="planned">Planned</option>
-                  <option value="actual">Actual</option>
-                  <option value="remaining">Remaining</option>
-                  <option value="percentage">Percentage used</option>
-                  <option value="status">Status</option>
-                </select>
+                <p-select
+                  inputId="progress-sort"
+                  [options]="progressSortOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                  [ngModel]="progressSort()"
+                  [ngModelOptions]="{ standalone: true }"
+                  (onChange)="setProgressSort($event.value)"
+                />
               </div>
               <button
+                pButton
                 type="button"
-                class="icon-button sort-direction"
+                class="sort-direction"
+                severity="secondary"
+                [outlined]="true"
+                [rounded]="true"
+                [iconOnly]="true"
                 [attr.aria-label]="
                   progressSortDirection() === 'asc'
                     ? 'Sort category progress descending'
@@ -561,22 +597,20 @@
                       </td>
                       <td class="used-cell">
                         <span>{{ percentageLabel(line.percentageUsed) }}</span>
-                        <div
-                          class="progress-track compact"
-                          role="progressbar"
+                        <p-progressbar
+                          class="budget-progress-bar compact"
                           [attr.aria-label]="categoryName(line.categoryId) + ' budget used'"
-                          aria-valuemin="0"
-                          aria-valuemax="100"
-                          [attr.aria-valuenow]="visualPercentage(line.percentageUsed)"
-                          [attr.aria-valuetext]="percentageLabel(line.percentageUsed)"
-                        >
-                          <span [style.width.%]="visualPercentage(line.percentageUsed)"></span>
-                        </div>
+                          [value]="visualPercentage(line.percentageUsed)"
+                          [showValue]="false"
+                          [color]="progressColor(line)"
+                        />
                       </td>
                       <td>
                         <button
+                          pButton
                           type="button"
-                          class="text-button table-action"
+                          class="table-action"
+                          [text]="true"
                           (click)="openDrillDown(line.drillDown)"
                         >
                           View activity
@@ -607,7 +641,13 @@
                     item.categoryId ? categoryName(item.categoryId) : 'Uncategorized'
                   }}</span>
                   <strong>{{ item.actual | currency: data.currency }}</strong>
-                  <button type="button" class="text-button" (click)="openDrillDown(item.drillDown)">
+                  <button
+                    pButton
+                    type="button"
+                    class="unbudgeted-action"
+                    [text]="true"
+                    (click)="openDrillDown(item.drillDown)"
+                  >
                     View activity
                   </button>
                 </li>
@@ -637,14 +677,14 @@
       >
         <div class="field">
           <label for="edit-budget-name">Budget name</label>
-          <input id="edit-budget-name" formControlName="name" maxlength="100" />
+          <input pInputText id="edit-budget-name" formControlName="name" maxlength="100" />
           @if (fieldError(editError(), 'name')) {
             <p class="field-error">{{ fieldError(editError(), 'name') }}</p>
           }
         </div>
         <div class="field">
           <label for="edit-budget-month">Month</label>
-          <input id="edit-budget-month" type="month" formControlName="month" />
+          <input pInputText id="edit-budget-month" type="month" formControlName="month" />
           @if (fieldError(editError(), 'startDate') || fieldError(editError(), 'endDate')) {
             <p class="field-error">
               {{ fieldError(editError(), 'startDate') || fieldError(editError(), 'endDate') }}
@@ -653,30 +693,49 @@
         </div>
         <div class="field">
           <label for="edit-budget-currency">Currency</label>
-          <input id="edit-budget-currency" formControlName="currency" maxlength="3" />
+          <input
+            pInputText
+            id="edit-budget-currency"
+            formControlName="currency"
+            maxlength="3"
+          />
         </div>
         @if (formError(editError())) {
           <p class="field-error form-error" role="alert">{{ formError(editError()) }}</p>
         }
         <footer>
-          <button type="button" class="text-button" (click)="cancelBudgetEdit()">Cancel</button>
-          <button type="submit" class="primary-button" [disabled]="mutationBusy()">
+          <button pButton type="button" [text]="true" (click)="cancelBudgetEdit()">Cancel</button>
+          <button pButton type="submit" [disabled]="mutationBusy()">
             {{ editSubmission.busy() ? 'Saving…' : 'Save budget' }}
           </button>
         </footer>
       </form>
     } @else {
       <div class="budget-actions">
-        <button type="button" class="secondary-button" (click)="startCopy(budget)">
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          (click)="startCopy(budget)"
+        >
           Copy to another month
         </button>
         @if (budget.status === 'active') {
-          <button type="button" class="secondary-button" (click)="startBudgetEdit(budget)">
+          <button
+            pButton
+            type="button"
+            severity="secondary"
+            [outlined]="true"
+            (click)="startBudgetEdit(budget)"
+          >
             Edit budget
           </button>
           <button
+            pButton
             type="button"
-            class="secondary-button danger"
+            severity="danger"
+            [outlined]="true"
             [disabled]="mutationBusy()"
             (click)="archiveBudget(budget)"
           >
@@ -684,8 +743,8 @@
           </button>
         } @else {
           <button
+            pButton
             type="button"
-            class="primary-button"
             [disabled]="mutationBusy()"
             (click)="restoreBudget(budget)"
           >
@@ -702,7 +761,7 @@
           <p>Ordering is retained for future planning and reporting views.</p>
         </div>
         @if (budget.status === 'active' && editingLineId() === null) {
-          <button type="button" class="primary-button" (click)="startAddLine()">Add line</button>
+          <button pButton type="button" (click)="startAddLine()">Add line</button>
         }
       </div>
 
@@ -710,32 +769,36 @@
         <form class="line-form" [formGroup]="lineForm" (ngSubmit)="saveLine(budget)" novalidate>
           <div class="field">
             <label for="new-line-category">Category</label>
-            <select id="new-line-category" formControlName="categoryId">
-              <option value="">Select an expense category</option>
-              @for (category of availableLineCategories(budget); track category.id) {
-                <option [value]="category.id">{{ category.name }}</option>
-              }
-            </select>
+            <p-select
+              inputId="new-line-category"
+              formControlName="categoryId"
+              [options]="lineCategorySelectOptions(budget)"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Select an expense category"
+            />
             @if (fieldError(lineError(), 'categoryId')) {
               <p class="field-error">{{ fieldError(lineError(), 'categoryId') }}</p>
             }
           </div>
           <div class="field">
             <label for="new-line-amount">Planned amount</label>
-            <input
-              id="new-line-amount"
-              type="number"
-              min="0"
-              step="0.01"
+            <p-inputnumber
+              inputId="new-line-amount"
               formControlName="plannedAmount"
+              mode="decimal"
+              [min]="0"
+              [minFractionDigits]="0"
+              [maxFractionDigits]="2"
+              [useGrouping]="false"
             />
             @if (fieldError(lineError(), 'plannedAmount')) {
               <p class="field-error">{{ fieldError(lineError(), 'plannedAmount') }}</p>
             }
           </div>
           <footer>
-            <button type="button" class="text-button" (click)="cancelLineEdit()">Cancel</button>
-            <button type="submit" class="primary-button" [disabled]="mutationBusy()">
+            <button pButton type="button" [text]="true" (click)="cancelLineEdit()">Cancel</button>
+            <button pButton type="submit" [disabled]="mutationBusy()">
               {{ lineSubmission.busy() ? 'Adding…' : 'Add line' }}
             </button>
           </footer>
@@ -762,35 +825,31 @@
                 >
                   <div class="field">
                     <label [for]="'edit-line-category-' + line.id">Category</label>
-                    <select [id]="'edit-line-category-' + line.id" formControlName="categoryId">
-                      @for (
-                        category of availableLineCategories(budget, line.id);
-                        track category.id
-                      ) {
-                        <option [value]="category.id">
-                          {{ category.name
-                          }}{{
-                            category.status === 'archived' ? ' (archived current category)' : ''
-                          }}
-                        </option>
-                      }
-                    </select>
+                    <p-select
+                      [inputId]="'edit-line-category-' + line.id"
+                      formControlName="categoryId"
+                      [options]="lineCategorySelectOptions(budget, line.id)"
+                      optionLabel="label"
+                      optionValue="value"
+                    />
                   </div>
                   <div class="field">
                     <label [for]="'edit-line-amount-' + line.id">Planned amount</label>
-                    <input
-                      [id]="'edit-line-amount-' + line.id"
-                      type="number"
-                      min="0"
-                      step="0.01"
+                    <p-inputnumber
+                      [inputId]="'edit-line-amount-' + line.id"
                       formControlName="plannedAmount"
+                      mode="decimal"
+                      [min]="0"
+                      [minFractionDigits]="0"
+                      [maxFractionDigits]="2"
+                      [useGrouping]="false"
                     />
                   </div>
                   <footer>
-                    <button type="button" class="text-button" (click)="cancelLineEdit()">
+                    <button pButton type="button" [text]="true" (click)="cancelLineEdit()">
                       Cancel
                     </button>
-                    <button type="submit" class="primary-button" [disabled]="mutationBusy()">
+                    <button pButton type="submit" [disabled]="mutationBusy()">
                       Save line
                     </button>
                   </footer>
@@ -815,8 +874,12 @@
                 @if (budget.status === 'active') {
                   <div class="line-actions">
                     <button
+                      pButton
                       type="button"
-                      class="icon-button"
+                      severity="secondary"
+                      [outlined]="true"
+                      [rounded]="true"
+                      [iconOnly]="true"
                       [disabled]="index === 0 || mutationBusy()"
                       [attr.aria-label]="'Move ' + categoryName(line.categoryId) + ' up'"
                       (click)="moveLine(budget, index, -1)"
@@ -824,8 +887,12 @@
                       ↑
                     </button>
                     <button
+                      pButton
                       type="button"
-                      class="icon-button"
+                      severity="secondary"
+                      [outlined]="true"
+                      [rounded]="true"
+                      [iconOnly]="true"
                       [disabled]="index === budget.lines.length - 1 || mutationBusy()"
                       [attr.aria-label]="'Move ' + categoryName(line.categoryId) + ' down'"
                       (click)="moveLine(budget, index, 1)"
@@ -833,18 +900,25 @@
                       ↓
                     </button>
                     @if (line.status === 'active') {
-                      <button type="button" class="text-button" (click)="startLineEdit(line)">
+                      <button pButton type="button" [text]="true" (click)="startLineEdit(line)">
                         Edit
                       </button>
                       <button
+                        pButton
                         type="button"
-                        class="text-button danger"
+                        [text]="true"
+                        severity="danger"
                         (click)="archiveLine(budget, line)"
                       >
                         Archive
                       </button>
                     } @else {
-                      <button type="button" class="text-button" (click)="restoreLine(budget, line)">
+                      <button
+                        pButton
+                        type="button"
+                        [text]="true"
+                        (click)="restoreLine(budget, line)"
+                      >
                         Restore
                       </button>
                     }

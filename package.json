@@ -3,8 +3,12 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
+    "primeui:license": "node scripts/write-primeui-license.mjs",
+    "prestart": "npm run primeui:license",
     "start": "ng serve",
+    "prebuild": "npm run primeui:license",
     "build": "ng build",
+    "prewatch": "npm run primeui:license",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },
@@ -17,6 +21,8 @@
     "@angular/forms": "^22.1.4",
     "@angular/platform-browser": "^22.1.4",
     "@angular/router": "^22.1.4",
+    "@primeuix/themes": "^2.0.3",
+    "primeng": "^22.1.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },

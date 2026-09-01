@@ -1,7 +1,12 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
+import { ButtonModule } from 'primeng/button';
+import { InputNumberModule } from 'primeng/inputnumber';
+import { InputTextModule } from 'primeng/inputtext';
+import { ProgressBarModule } from 'primeng/progressbar';
+import { SelectModule } from 'primeng/select';
 import { Observable, finalize, forkJoin } from 'rxjs';
 import {
   Budget,
@@ -29,7 +34,18 @@ type ProgressSort =
 
 @Component({
   selector: 'app-budgets-page',
-  imports: [ReactiveFormsModule, CurrencyPipe, DatePipe, PageState],
+  imports: [
+    ReactiveFormsModule,
+    FormsModule,
+    CurrencyPipe,
+    DatePipe,
+    ButtonModule,
+    InputNumberModule,
+    InputTextModule,
+    ProgressBarModule,
+    SelectModule,
+    PageState,
+  ],
   templateUrl: './budgets-page.html',
   styleUrl: './budgets-page.scss',
 })
@@ -67,6 +83,26 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
   protected readonly progressStatusFilter = signal<ProgressStatusFilter>('all');
   protected readonly progressSort = signal<ProgressSort>('position');
   protected readonly progressSortDirection = signal<'asc' | 'desc'>('asc');
+  protected readonly progressStatusOptions: Array<{
+    label: string;
+    value: ProgressStatusFilter;
+  }> = [
+    { label: 'All statuses', value: 'all' },
+    { label: 'On track', value: 'on_track' },
+    { label: 'Approaching limit', value: 'approaching' },
+    { label: 'At limit', value: 'at_limit' },
+    { label: 'Over budget', value: 'over_budget' },
+    { label: 'No plan', value: 'no_plan' },
+  ];
+  protected readonly progressSortOptions: Array<{ label: string; value: ProgressSort }> = [
+    { label: 'Plan order', value: 'position' },
+    { label: 'Category', value: 'category' },
+    { label: 'Planned', value: 'planned' },
+    { label: 'Actual', value: 'actual' },
+    { label: 'Remaining', value: 'remaining' },
+    { label: 'Percentage used', value: 'percentage' },
+    { label: 'Status', value: 'status' },
+  ];
   protected readonly createSubmission = new SubmissionState();
   protected readonly editSubmission = new SubmissionState();
   protected readonly lineSubmission = new SubmissionState();
@@ -616,6 +652,48 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
 
   protected visualPercentage(value: number | null): number {
     return value === null ? 0 : Math.min(100, Math.max(0, value));
+  }
+
+  protected progressColor(line: Pick<BudgetLineProgress, 'planned' | 'percentageUsed'>): string {
+    return {
+      no_plan: 'var(--color-muted)',
+      on_track: 'var(--color-positive)',
+      approaching: 'color-mix(in srgb, var(--color-negative) 52%, var(--color-primary))',
+      at_limit: 'var(--color-negative)',
+      over_budget: 'var(--color-negative)',
+    }[this.progressStatus(line)];
+  }
+
+  protected initialCategorySelectOptions(index: number): Array<{
+    label: string;
+    value: string;
+  }> {
+    return this.initialCategoryOptions(index).map((category) => ({
+      label: category.name,
+      value: category.id,
+    }));
+  }
+
+  protected copyCategorySelectOptions(index: number): Array<{
+    label: string;
+    value: string;
+    disabled: boolean;
+  }> {
+    return this.copyCategoryOptions(index).map((category) => ({
+      label: category.name + (category.status !== 'active' ? ' (unavailable)' : ''),
+      value: category.id,
+      disabled: category.status !== 'active' || category.applicability === 'income',
+    }));
+  }
+
+  protected lineCategorySelectOptions(
+    budget: Budget,
+    editingLineId?: string,
+  ): Array<{ label: string; value: string }> {
+    return this.availableLineCategories(budget, editingLineId).map((category) => ({
+      label: category.name + (category.status === 'archived' ? ' (archived current category)' : ''),
+      value: category.id,
+    }));
   }
 
   protected setProgressStatusFilter(value: string): void {

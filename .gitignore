@@ -39,6 +39,10 @@ testem.log
 /typings
 __screenshots__/
 
+# Local PrimeUI license (generated for local builds)
+/.primeui-license
+/public/primeui-license.js
+
 # System files
 .DS_Store
 Thumbs.db
