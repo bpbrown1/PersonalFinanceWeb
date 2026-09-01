@@ -8,10 +8,15 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { debounceTime, distinctUntilChanged, finalize, forkJoin, Subject } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ButtonModule } from 'primeng/button';
+import { InputNumberModule } from 'primeng/inputnumber';
+import { InputTextModule } from 'primeng/inputtext';
+import { PaginatorModule, PaginatorState } from 'primeng/paginator';
+import { SelectModule } from 'primeng/select';
 import { AccountsApiService } from '../../../api/accounts/accounts-api.service';
 import { FinancialAccount } from '../../../api/accounts/account.models';
 import { BudgetsApiService } from '../../../api/budgets/budgets-api.service';
@@ -45,7 +50,19 @@ type CreateMode = CashFlowTransactionType | 'transfer';
 
 @Component({
   selector: 'app-transactions-page',
-  imports: [ReactiveFormsModule, CurrencyPipe, DatePipe, RouterLink, PageState],
+  imports: [
+    ReactiveFormsModule,
+    FormsModule,
+    CurrencyPipe,
+    DatePipe,
+    RouterLink,
+    ButtonModule,
+    InputNumberModule,
+    InputTextModule,
+    PaginatorModule,
+    SelectModule,
+    PageState,
+  ],
   templateUrl: './transactions-page.html',
   styleUrl: './transactions-page.scss',
 })
@@ -107,7 +124,7 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
   protected readonly summaryPeriod = signal<SummaryPeriod>('this_month');
   protected readonly customSummaryFrom = signal(this.firstDayOfMonth(new Date()));
   protected readonly customSummaryTo = signal(this.today);
-  protected readonly summaryPeriodOptions: ReadonlyArray<{
+  protected readonly summaryPeriodOptions: Array<{
     value: SummaryPeriod;
     label: string;
   }> = [
@@ -124,6 +141,14 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
     { value: 'expense', label: 'Expense' },
     { value: 'income', label: 'Income' },
   ];
+  protected readonly searchTypeOptions: Array<{ value: TransactionType | ''; label: string }> = [
+    { value: '', label: 'All types' },
+    { value: 'income', label: 'Income' },
+    { value: 'expense', label: 'Expense' },
+    { value: 'transfer_out', label: 'Transfer out' },
+    { value: 'transfer_in', label: 'Transfer in' },
+  ];
+  protected readonly pageSizeOptions = [10, 25, 50, 100];
   protected readonly createForm = this.buildForm();
   protected readonly editForm = this.buildForm();
   protected readonly transferCreateForm = this.buildTransferForm();
@@ -149,6 +174,24 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
   protected readonly activeAccounts = computed(() =>
     this.accounts().filter((account) => account.status === 'active'),
   );
+  protected readonly searchAccountOptions = computed(() => [
+    { value: '', label: 'All accounts' },
+    ...this.accounts().map((account) => ({
+      value: account.id,
+      label:
+        account.name +
+        ' · ' +
+        account.currency +
+        (account.status === 'archived' ? ' (archived)' : ''),
+    })),
+  ]);
+  protected readonly searchCategoryOptions = computed(() => [
+    { value: '', label: 'All categories' },
+    ...this.categories().map((category) => ({
+      value: category.id,
+      label: category.name + (category.status === 'archived' ? ' (archived)' : ''),
+    })),
+  ]);
   protected readonly summaryRange = computed(() => this.rangeFor(this.summaryPeriod()));
   protected readonly summaryRangeValid = computed(() => {
     const range = this.summaryRange();
@@ -167,21 +210,6 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
         this.searchMaxAmount(),
         this.searchText(),
       ].filter(Boolean).length,
-  );
-  protected readonly pageStart = computed(() =>
-    this.transactionPage().totalElements === 0
-      ? 0
-      : this.transactionPage().page * this.transactionPage().size + 1,
-  );
-  protected readonly pageEnd = computed(() =>
-    Math.min(
-      (this.transactionPage().page + 1) * this.transactionPage().size,
-      this.transactionPage().totalElements,
-    ),
-  );
-  protected readonly canGoPrevious = computed(() => this.transactionPage().page > 0);
-  protected readonly canGoNext = computed(
-    () => this.transactionPage().page + 1 < this.transactionPage().totalPages,
   );
   ngOnInit(): void {
     this.restoreSearchStateFromUrl();
@@ -475,15 +503,12 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
     this.refreshSearch();
   }
 
-  protected setPageSize(value: string): void {
-    const size = Number(value);
+  protected onPageChange(event: PaginatorState): void {
+    const size = event.rows ?? this.searchSize();
+    const page = event.page ?? 0;
     if (![10, 25, 50, 100].includes(size)) return;
+    if (size === this.searchSize() && page === this.searchPage()) return;
     this.searchSize.set(size);
-    this.refreshSearch();
-  }
-
-  protected changePage(page: number): void {
-    if (page < 0 || page >= this.transactionPage().totalPages || page === this.searchPage()) return;
     this.searchPage.set(page);
     this.closeDetails();
     this.loadTransactions();

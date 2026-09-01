@@ -626,8 +626,7 @@ describe('TransactionsPage', () => {
     const fixture = TestBed.createComponent(TransactionsPage);
     fixture.detectChanges();
 
-    const period = fixture.nativeElement.querySelector('#summary-period') as HTMLSelectElement;
-    expect(period.value).toBe('custom');
+    expect((fixture.componentInstance as any).summaryPeriod()).toBe('custom');
     expect(transactionsApi.search).toHaveBeenCalledWith(
       expect.objectContaining({
         from: '2026-08-01',
@@ -699,7 +698,7 @@ describe('TransactionsPage', () => {
     fixture.detectChanges();
     const component = fixture.componentInstance as any;
 
-    component.changePage(1);
+    component.onPageChange({ page: 1, first: 25, rows: 25, pageCount: 3 });
     expect(transactionsApi.search).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }));
 
     component.selectSort('amount');
