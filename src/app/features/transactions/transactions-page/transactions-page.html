@@ -10,13 +10,15 @@
   <div>
     <p class="eyebrow">Quick entry</p>
     <h2 id="new-activity-heading">New activity</h2>
-    <p>Choose what happened, then add the details below.</p>
+    <p>Choose what happened to open the details. Select it again to close the form.</p>
   </div>
   <nav class="activity-modes" aria-label="New activity type">
     <button
       type="button"
       [class.selected]="createMode() === 'expense'"
       [attr.aria-pressed]="createMode() === 'expense'"
+      [attr.aria-expanded]="createMode() === 'expense'"
+      aria-controls="transaction-create-form"
       (click)="selectCreateMode('expense')"
     >
       <span aria-hidden="true">↓</span>
@@ -26,6 +28,8 @@
       type="button"
       [class.selected]="createMode() === 'income'"
       [attr.aria-pressed]="createMode() === 'income'"
+      [attr.aria-expanded]="createMode() === 'income'"
+      aria-controls="transaction-create-form"
       (click)="selectCreateMode('income')"
     >
       <span aria-hidden="true">↑</span>
@@ -35,6 +39,8 @@
       type="button"
       [class.selected]="createMode() === 'transfer'"
       [attr.aria-pressed]="createMode() === 'transfer'"
+      [attr.aria-expanded]="createMode() === 'transfer'"
+      aria-controls="transfer-create-form"
       (click)="selectCreateMode('transfer')"
     >
       <span aria-hidden="true">⇄</span>
@@ -43,8 +49,12 @@
   </nav>
 </section>
 
-@if (createMode() !== 'transfer') {
-  <section class="create-panel transaction-form" aria-labelledby="record-heading">
+@if (createMode() === 'expense' || createMode() === 'income') {
+  <section
+    id="transaction-create-form"
+    class="create-panel transaction-form"
+    aria-labelledby="record-heading"
+  >
     <div>
       <span class="composer-icon" [class.income]="createMode() === 'income'" aria-hidden="true">
         {{ createMode() === 'income' ? '↑' : '↓' }}
@@ -341,8 +351,12 @@
       }
     </form>
   </section>
-} @else {
-  <section class="create-panel transaction-form" aria-labelledby="transfer-heading">
+} @else if (createMode() === 'transfer') {
+  <section
+    id="transfer-create-form"
+    class="create-panel transaction-form"
+    aria-labelledby="transfer-heading"
+  >
     <div>
       <span class="composer-icon transfer" aria-hidden="true">⇄</span>
       <h2 id="transfer-heading">Move money between accounts</h2>

@@ -120,7 +120,7 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
   protected readonly editSubmission = new SubmissionState();
   protected readonly transferEditSubmission = new SubmissionState();
   protected readonly today = this.localToday();
-  protected readonly createMode = signal<CreateMode>('expense');
+  protected readonly createMode = signal<CreateMode | null>(null);
   protected readonly summaryPeriod = signal<SummaryPeriod>('this_month');
   protected readonly customSummaryFrom = signal(this.firstDayOfMonth(new Date()));
   protected readonly customSummaryTo = signal(this.today);
@@ -284,9 +284,10 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
   }
 
   protected selectCreateMode(mode: CreateMode): void {
-    this.createMode.set(mode);
-    if (mode !== 'transfer') {
-      this.createForm.controls.type.setValue(mode);
+    const nextMode = this.createMode() === mode ? null : mode;
+    this.createMode.set(nextMode);
+    if (nextMode !== null && nextMode !== 'transfer') {
+      this.createForm.controls.type.setValue(nextMode);
       this.onTypeChanged('create');
     }
   }
