@@ -17,7 +17,10 @@
     <a routerLink="/accounts" class="back-link">← Accounts</a>
     <div class="title-row">
       <div>
-        <p class="eyebrow">{{ current.type.replace('_', ' ') | titlecase }}</p>
+        <p class="eyebrow">
+          {{ current.classification | titlecase }} ·
+          {{ current.type.replace('_', ' ') | titlecase }}
+        </p>
         <h1>{{ current.name }}</h1>
       </div>
       <span class="status">{{ current.status }}</span>
@@ -28,6 +31,9 @@
         current.currentBalance | currency: current.currency : 'symbol' : '1.2-2'
       }}</strong>
       · Updated {{ current.updatedAt | date: 'medium' }}
+      @if (interestTerms(current); as terms) {
+        · {{ terms }}
+      }
     </p>
     <a [routerLink]="['/accounts', current.id, 'history']" class="history-link"
       >View balance history →</a
@@ -58,7 +64,50 @@
             <option [value]="type.value">{{ type.label }}</option>
           }
         </select>
+        <small>{{ classificationLabel(form.controls.type.value) }} account</small>
+        @if (serverFieldErrors()['type']) {
+          <p class="field-error">{{ serverFieldErrors()['type'] }}</p>
+        }
       </div>
+      @if (interestRateTypeFor(form.controls.type.value)) {
+        <div class="field">
+          <label for="interest-rate">
+            {{ interestRateLabel(form.controls.type.value) }} interest rate
+            <span class="optional">(optional)</span>
+          </label>
+          <div class="rate-input">
+            <input
+              id="interest-rate"
+              type="number"
+              formControlName="interestRate"
+              min="0"
+              max="999.999999"
+              step="0.000001"
+              inputmode="decimal"
+              placeholder="0.000000"
+              [attr.aria-invalid]="
+                form.controls.interestRate.invalid && form.controls.interestRate.touched
+              "
+            />
+            <span aria-hidden="true">%</span>
+          </div>
+          <small>
+            Enter the advertised {{ interestRateLabel(form.controls.type.value) }} as percentage
+            points, such as 4.25.
+          </small>
+          @if (form.controls.interestRate.touched && form.controls.interestRate.invalid) {
+            <p class="field-error">
+              Enter a rate from 0 through 999.999999 with up to six decimal places.
+            </p>
+          } @else if (
+            serverFieldErrors()['interestRate'] || serverFieldErrors()['interestRateType']
+          ) {
+            <p class="field-error">
+              {{ serverFieldErrors()['interestRate'] || serverFieldErrors()['interestRateType'] }}
+            </p>
+          }
+        </div>
+      }
       <div class="field">
         <label for="currency">Currency *</label>
         <p-select

@@ -39,7 +39,13 @@ describe('CreateAccount', () => {
     const fixture = TestBed.createComponent(CreateAccount);
     fixture.detectChanges();
     const form = componentForm(fixture.componentInstance);
-    form.patchValue({ name: '', currency: 'US', openingDate: '', openingBalance: 1.234 });
+    form.patchValue({
+      name: '',
+      currency: 'US',
+      openingDate: '',
+      openingBalance: 1.234,
+      interestRate: 1000.1234567,
+    });
     fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit'));
     fixture.detectChanges();
 
@@ -48,6 +54,7 @@ describe('CreateAccount', () => {
     expect(fixture.nativeElement.textContent).toContain('Select a supported currency.');
     expect(fixture.nativeElement.textContent).toContain('Choose an opening date.');
     expect(fixture.nativeElement.textContent).toContain('two decimal places');
+    expect(fixture.nativeElement.textContent).toContain('up to six decimal places');
   });
 
   it('maps normalized form values to the API and completes the success flow', () => {
@@ -59,6 +66,7 @@ describe('CreateAccount', () => {
       currency: 'USD',
       openingDate: '2026-08-22',
       openingBalance: 1250.75,
+      interestRate: 4.25,
     });
     fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit'));
 
@@ -68,6 +76,8 @@ describe('CreateAccount', () => {
       currency: 'USD',
       openingDate: '2026-08-22',
       openingBalance: 1250.75,
+      interestRate: 4.25,
+      interestRateType: 'apy',
     });
     expect(notifications.show).toHaveBeenCalledWith(
       'Everyday Checking was added successfully.',
@@ -86,6 +96,7 @@ describe('CreateAccount', () => {
       currency: 'USD',
       openingDate: '2026-08-22',
       openingBalance: null,
+      interestRate: null,
     });
     fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit'));
     expect(api.create).toHaveBeenCalledWith({
@@ -109,6 +120,7 @@ describe('CreateAccount', () => {
       currency: 'USD',
       openingDate: '2026-08-22',
       openingBalance: null,
+      interestRate: null,
     });
     fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit'));
     fixture.detectChanges();
@@ -161,6 +173,26 @@ describe('CreateAccount', () => {
     form.controls.name.markAsDirty();
     expect(fixture.componentInstance.hasPendingChanges()).toBe(true);
   });
+
+  it('switches APY and APR controls and removes incompatible rate values', () => {
+    const fixture = TestBed.createComponent(CreateAccount);
+    fixture.detectChanges();
+    const form = componentForm(fixture.componentInstance);
+
+    expect(fixture.nativeElement.textContent).toContain('Asset account');
+    expect(fixture.nativeElement.textContent).toContain('APY interest rate');
+    form.controls.interestRate.setValue(4.25);
+    form.controls.type.setValue('credit_card');
+    fixture.detectChanges();
+
+    expect(form.controls.interestRate.value).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Liability account');
+    expect(fixture.nativeElement.textContent).toContain('APR interest rate');
+
+    form.controls.type.setValue('cash');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#interest-rate')).toBeNull();
+  });
 });
 
 function componentForm(component: CreateAccount): any {
@@ -173,10 +205,13 @@ function accountFixture(): FinancialAccount {
     ownerId: '00000000-0000-0000-0000-000000000001',
     name: 'Everyday Checking',
     type: 'checking',
+    classification: 'asset',
     currency: 'USD',
     openingDate: '2026-08-22',
     openingBalance: 1250.75,
     currentBalance: 1250.75,
+    interestRate: null,
+    interestRateType: null,
     status: 'active',
     archivedAt: null,
     createdAt: '2026-08-22T18:30:00Z',

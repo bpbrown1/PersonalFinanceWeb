@@ -9,6 +9,7 @@ import { AccountsApiService } from '../../../api/accounts/accounts-api.service';
 import {
   AccountType,
   FinancialAccount,
+  InterestRateType,
   UpdateFinancialAccountRequest,
 } from '../../../api/accounts/account.models';
 import { ApiErrorPresenter } from '../../../api/errors/api-error-presenter.service';
@@ -41,6 +42,7 @@ export class AccountDetail implements OnInit, HasPendingChanges {
   private readonly router = inject(Router);
   private readonly formBuilder = inject(FormBuilder);
   private readonly accountId = this.route.snapshot.paramMap.get('accountId')!;
+  private formRateType: InterestRateType | null = 'apy';
 
   protected readonly account = signal<FinancialAccount | null>(null);
   protected readonly loading = signal(true);
@@ -76,9 +78,20 @@ export class AccountDetail implements OnInit, HasPendingChanges {
     openingBalance: this.formBuilder.control<number | null>(null, [
       Validators.pattern(/^-?\d{1,17}(\.\d{1,2})?$/),
     ]),
+    interestRate: this.formBuilder.control<number | null>(null, [
+      Validators.min(0),
+      Validators.max(999.999999),
+      Validators.pattern(/^\d{1,3}(\.\d{1,6})?$/),
+    ]),
   });
 
   ngOnInit(): void {
+    this.form.controls.type.valueChanges.subscribe((type) => {
+      const nextRateType = this.interestRateTypeFor(type);
+      if (nextRateType !== this.formRateType) this.form.controls.interestRate.setValue(null);
+      this.formRateType = nextRateType;
+      this.serverFieldErrors.set({});
+    });
     this.load();
     this.loadCurrencies();
   }
@@ -124,7 +137,8 @@ export class AccountDetail implements OnInit, HasPendingChanges {
       .subscribe({
         next: (account) => {
           this.account.set(account);
-          this.form.reset(this.formValue(account));
+          this.formRateType = this.interestRateTypeFor(account.type);
+          this.form.reset(this.formValue(account), { emitEvent: false });
         },
         error: (error) => this.loadError.set(this.errors.present(error)),
       });
@@ -142,7 +156,8 @@ export class AccountDetail implements OnInit, HasPendingChanges {
       .subscribe({
         next: (account) => {
           this.account.set(account);
-          this.form.reset(this.formValue(account));
+          this.formRateType = this.interestRateTypeFor(account.type);
+          this.form.reset(this.formValue(account), { emitEvent: false });
           this.notifications.show(`${account.name} was updated.`, 'success');
         },
         error: (error: AppHttpError) => {
@@ -158,6 +173,21 @@ export class AccountDetail implements OnInit, HasPendingChanges {
   }
   protected restore(): void {
     this.changeLifecycle('restore');
+  }
+  protected interestRateTypeFor(type: AccountType): InterestRateType | null {
+    if (type === 'checking' || type === 'savings') return 'apy';
+    if (type === 'credit_card' || type === 'loan') return 'apr';
+    return null;
+  }
+  protected interestRateLabel(type: AccountType): string {
+    return this.interestRateTypeFor(type)?.toUpperCase() ?? '';
+  }
+  protected classificationLabel(type: AccountType): string {
+    return type === 'credit_card' || type === 'loan' ? 'Liability' : 'Asset';
+  }
+  protected interestTerms(account: FinancialAccount): string | null {
+    if (account.interestRate === null || account.interestRateType === null) return null;
+    return `${account.interestRate.toLocaleString(undefined, { maximumFractionDigits: 6 })}% ${account.interestRateType.toUpperCase()}`;
   }
   hasPendingChanges(): boolean {
     return this.form.dirty && !this.form.disabled;
@@ -193,6 +223,7 @@ export class AccountDetail implements OnInit, HasPendingChanges {
       currency: account.currency,
       openingDate: account.openingDate,
       openingBalance: account.openingBalance,
+      interestRate: account.interestRate,
     };
   }
   private changedFields(): UpdateFinancialAccountRequest {
@@ -207,6 +238,11 @@ export class AccountDetail implements OnInit, HasPendingChanges {
     if (value.openingDate !== account.openingDate) request.openingDate = value.openingDate!;
     if (value.openingBalance !== null && value.openingBalance !== account.openingBalance)
       request.openingBalance = value.openingBalance;
+    const rateType = value.interestRate === null ? null : this.interestRateTypeFor(value.type);
+    if (value.interestRate !== account.interestRate || rateType !== account.interestRateType) {
+      request.interestRate = value.interestRate;
+      request.interestRateType = rateType;
+    }
     return request;
   }
 
