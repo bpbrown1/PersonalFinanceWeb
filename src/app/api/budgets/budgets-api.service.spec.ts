@@ -216,6 +216,7 @@ function progressFixture(): BudgetProgress {
     components: [],
     unbudgeted: [],
     unbudgetedCommitments: [],
+    hierarchy: [],
     drillDown,
   };
 }

@@ -24,6 +24,65 @@
   font-synthesis: none;
 }
 
+/* Hierarchical budget rows stay global to preserve the lazy component style budget. */
+.hierarchy-category,
+.hierarchy-copy {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.hierarchy-scroll {
+  overflow-x: auto;
+  border-top: 1px solid var(--color-border);
+}
+.hierarchy-header,
+.hierarchy-row {
+  display: grid;
+  grid-template-columns: minmax(18rem, 2fr) repeat(5, minmax(7rem, 0.8fr)) minmax(9rem, 1fr);
+  gap: 0.7rem;
+  align-items: center;
+  min-width: 74rem;
+  padding: 0.7rem 0.8rem;
+}
+.hierarchy-header {
+  color: var(--color-muted);
+  background: var(--color-surface);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.category-tree {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.category-tree-item {
+  border-bottom: 1px solid var(--color-border);
+}
+.hierarchy-category {
+  padding-left: calc(var(--hierarchy-depth) * 1.1rem);
+}
+.hierarchy-toggle,
+.hierarchy-leaf {
+  width: 1.6rem;
+  flex: 0 0 1.6rem;
+}
+.hierarchy-toggle {
+  border: 1px solid var(--color-border);
+  border-radius: 0.4rem;
+  color: var(--color-primary);
+}
+.hierarchy-copy {
+  flex-wrap: wrap;
+}
+.hierarchy-copy small {
+  width: 100%;
+  color: var(--color-muted);
+}
+.hierarchy-row .used-cell {
+  display: grid;
+  gap: 0.1rem;
+}
+
 :root[data-theme='dark'] {
   --color-canvas: #0d1724;
   --color-surface: #152234;

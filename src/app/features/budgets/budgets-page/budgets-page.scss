@@ -288,6 +288,7 @@ legend span {
 }
 .overall-progress,
 .line-progress-section,
+.hierarchy-section,
 .commitments-section,
 .unbudgeted-section {
   padding: 1rem;
@@ -328,8 +329,7 @@ legend span {
 }
 .progress-caption,
 .spending-breakdown,
-.progress-table-heading,
-.progress-controls {
+.progress-table-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -363,6 +363,22 @@ legend span {
   padding: 0;
   overflow: hidden;
 }
+.hierarchy-section {
+  padding: 0;
+  overflow: hidden;
+}
+.hierarchy-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.allocation-impact {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+}
+.allocation-impact {
+  margin: 0.35rem 0 0;
+}
 .progress-table-heading {
   padding: 1rem;
 }
@@ -371,15 +387,6 @@ legend span {
   margin: 0;
   color: var(--color-muted);
   font-size: 0.8rem;
-}
-.progress-controls {
-  align-items: end;
-}
-.progress-controls .field {
-  min-width: 9rem;
-}
-.progress-controls p-select {
-  width: 100%;
 }
 .progress-table-wrap {
   max-width: 100%;
@@ -632,12 +639,6 @@ form footer {
     align-items: stretch;
     flex-direction: column;
   }
-  .progress-controls {
-    width: 100%;
-  }
-  .progress-controls .field {
-    flex: 1;
-  }
   .budget-fields,
   .edit-budget-form,
   .line-form {
@@ -698,13 +699,6 @@ form footer {
   }
   .progress-metrics {
     grid-template-columns: 1fr;
-  }
-  .progress-controls {
-    display: grid;
-    grid-template-columns: 1fr auto;
-  }
-  .progress-controls .field:first-child {
-    grid-column: 1 / -1;
   }
   .unbudgeted-section li {
     grid-template-columns: 1fr auto;
