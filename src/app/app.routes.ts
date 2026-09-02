@@ -74,6 +74,15 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/budgets/budgets-page/budgets-page').then((m) => m.BudgetsPage),
       },
+      {
+        path: 'recurring-bills',
+        title: 'Recurring bills · Personal Finance',
+        canDeactivate: [pendingChangesGuard],
+        loadComponent: () =>
+          import('./features/recurring-expenses/recurring-expenses-page/recurring-expenses-page').then(
+            (m) => m.RecurringExpensesPage,
+          ),
+      },
       ...['imports', 'reports', 'settings'].map((path): Routes[number] => ({
         path,
         title: `${path[0].toUpperCase()}${path.slice(1)} · Personal Finance`,

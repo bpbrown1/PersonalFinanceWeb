@@ -14,6 +14,7 @@ describe('application routes', () => {
       'transactions',
       'categories',
       'budgets',
+      'recurring-bills',
       'imports',
       'reports',
       'settings',
@@ -21,7 +22,9 @@ describe('application routes', () => {
 
     for (const path of expected) {
       const route = shell?.children?.find((candidate) => candidate.path === path);
-      expect(route?.title).toBe(`${path[0].toUpperCase()}${path.slice(1)} · Personal Finance`);
+      const title =
+        path === 'recurring-bills' ? 'Recurring bills' : `${path[0].toUpperCase()}${path.slice(1)}`;
+      expect(route?.title).toBe(`${title} · Personal Finance`);
       expect(route?.loadComponent).toBeTypeOf('function');
     }
   });
@@ -68,6 +71,14 @@ describe('application routes', () => {
     expect(budgets?.title).toBe('Budgets · Personal Finance');
     expect(budgets?.loadComponent).toBeTypeOf('function');
     expect(budgets?.canDeactivate).toHaveLength(1);
+  });
+
+  it('protects the lazy recurring bill workspace from losing unsaved changes', () => {
+    const shell = routes.find((route) => route.path === '');
+    const recurringBills = shell?.children?.find((route) => route.path === 'recurring-bills');
+    expect(recurringBills?.title).toBe('Recurring bills · Personal Finance');
+    expect(recurringBills?.loadComponent).toBeTypeOf('function');
+    expect(recurringBills?.canDeactivate).toHaveLength(1);
   });
 
   it('provides a lazy wildcard route with a not-found title', () => {

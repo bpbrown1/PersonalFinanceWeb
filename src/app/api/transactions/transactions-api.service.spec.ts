@@ -19,6 +19,7 @@ describe('TransactionsApiService', () => {
     merchantPayee: null,
     notes: null,
     externalReference: null,
+    recurringExpenseOccurrence: null,
   };
 
   beforeEach(() => {

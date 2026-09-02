@@ -82,9 +82,48 @@ export interface BudgetLineProgress {
   categoryId: string;
   position: number;
   planned: number;
+  committed: number;
+  scheduledTarget: number;
+  outstandingScheduledTarget: number;
+  totalBudgeted: number;
+  remainingAfterCommitments: number;
+  underfunded: boolean;
+  scheduledCommitments: BudgetScheduledCommitment[];
+  flexibleActual: number;
+  billActual: number;
   actual: number;
   remaining: number;
   percentageUsed: number | null;
+  percentSpent: number | null;
+  projectedUsage: number;
+  projectedRemaining: number;
+  projectedPercentage: number | null;
+  drillDown: BudgetProgressDrillDown;
+}
+
+export type BudgetProgressComponentSource = 'flexible' | 'recurring';
+export type BudgetProgressComponentStatus = 'outstanding' | 'satisfied';
+
+export interface BudgetProgressComponent {
+  componentKey: string;
+  source: BudgetProgressComponentSource;
+  lineId: string | null;
+  occurrenceKey: string | null;
+  recurringExpenseId: string | null;
+  categoryId: string;
+  position: number | null;
+  name: string | null;
+  dueDate: string | null;
+  target: number;
+  actual: number;
+  remaining: number;
+  percentageUsed: number | null;
+  projectedUsage: number;
+  projectedRemaining: number;
+  projectedPercentage: number | null;
+  status: BudgetProgressComponentStatus;
+  variance: number | null;
+  linkedTransactionId: string | null;
   drillDown: BudgetProgressDrillDown;
 }
 
@@ -92,6 +131,37 @@ export interface UnbudgetedProgress {
   categoryId: string | null;
   actual: number;
   drillDown: BudgetProgressDrillDown;
+}
+
+export interface BudgetScheduledCommitment {
+  occurrenceKey: string;
+  recurringExpenseId: string;
+  name: string;
+  dueDate: string;
+  amount: number;
+  currency: string;
+  categoryId: string;
+  accountId: string | null;
+  satisfied: boolean;
+  actualAmount: number | null;
+  variance: number | null;
+  linkedTransactionId: string | null;
+}
+
+export interface UnbudgetedCommitment {
+  categoryId: string;
+  committed: number;
+  scheduledTarget: number;
+  outstandingScheduledTarget: number;
+  totalBudgeted: number;
+  billActual: number;
+  actual: number;
+  remaining: number;
+  percentSpent: number | null;
+  projectedUsage: number;
+  projectedRemaining: number;
+  projectedPercentage: number | null;
+  scheduledCommitments: BudgetScheduledCommitment[];
 }
 
 export interface BudgetProgress {
@@ -103,13 +173,27 @@ export interface BudgetProgress {
   accountId: string | null;
   categoryId: string | null;
   planned: number;
+  committed: number;
+  scheduledTarget: number;
+  outstandingScheduledTarget: number;
+  totalBudgeted: number;
+  remainingAfterCommitments: number;
+  underfunded: boolean;
+  flexibleActual: number;
+  billActual: number;
   budgetedActual: number;
   unbudgetedActual: number;
   totalActual: number;
   remaining: number;
   percentageUsed: number | null;
+  percentSpent: number | null;
+  projectedUsage: number;
+  projectedRemaining: number;
+  projectedPercentage: number | null;
   lines: BudgetLineProgress[];
+  components: BudgetProgressComponent[];
   unbudgeted: UnbudgetedProgress[];
+  unbudgetedCommitments: UnbudgetedCommitment[];
   drillDown: BudgetProgressDrillDown;
 }
 

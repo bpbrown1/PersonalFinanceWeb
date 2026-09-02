@@ -8,11 +8,14 @@ import { InputTextModule } from 'primeng/inputtext';
 import { ProgressBarModule } from 'primeng/progressbar';
 import { SelectModule } from 'primeng/select';
 import { Observable, finalize, forkJoin } from 'rxjs';
+import { FinancialAccount } from '../../../api/accounts/account.models';
+import { AccountsApiService } from '../../../api/accounts/accounts-api.service';
 import {
   Budget,
   BudgetLine,
   BudgetLineProgress,
   BudgetProgress,
+  BudgetProgressComponent,
   BudgetProgressDrillDown,
   BudgetStatus,
   SaveBudgetLineRequest,
@@ -51,6 +54,7 @@ type ProgressSort =
 })
 export class BudgetsPage implements OnInit, HasPendingChanges {
   private readonly api = inject(BudgetsApiService);
+  private readonly accountsApi = inject(AccountsApiService);
   private readonly categoriesApi = inject(CategoriesApiService);
   private readonly errors = inject(ApiErrorPresenter);
   private readonly notifications = inject(NotificationService);
@@ -60,6 +64,7 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
 
   protected readonly budgets = signal<Budget[]>([]);
   protected readonly categories = signal<TransactionCategory[]>([]);
+  protected readonly accounts = signal<FinancialAccount[]>([]);
   protected readonly filter = signal<BudgetStatus>('active');
   protected readonly selectedBudget = signal<Budget | null>(null);
   protected readonly progress = signal<BudgetProgress | null>(null);
@@ -153,12 +158,17 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
   protected load(): void {
     this.loading.set(true);
     this.loadError.set(null);
-    forkJoin({ budgets: this.api.list(this.filter()), categories: this.categoriesApi.list('all') })
+    forkJoin({
+      budgets: this.api.list(this.filter()),
+      categories: this.categoriesApi.list('all'),
+      accounts: this.accountsApi.list('all'),
+    })
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
-        next: ({ budgets, categories }) => {
+        next: ({ budgets, categories, accounts }) => {
           this.budgets.set(budgets);
           this.categories.set(categories);
+          this.accounts.set(accounts);
           const selectedId = this.selectedBudget()?.id;
           if (selectedId)
             this.selectedBudget.set(budgets.find((item) => item.id === selectedId) ?? null);
@@ -589,6 +599,18 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
     return this.categories().find((category) => category.id === id)?.name ?? 'Unavailable category';
   }
 
+  protected accountName(id: string | null): string {
+    if (!id) return 'No linked account';
+    return this.accounts().find((account) => account.id === id)?.name ?? 'Unavailable account';
+  }
+
+  protected hasCommitments(progress: BudgetProgress): boolean {
+    return (
+      progress.unbudgetedCommitments.length > 0 ||
+      progress.lines.some((line) => line.scheduledCommitments.length > 0)
+    );
+  }
+
   protected periodLabel(budget: Budget): string {
     const [year, month] = budget.startDate.split('-').map(Number);
     return new Intl.DateTimeFormat(undefined, {
@@ -623,17 +645,17 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
   }
 
   protected progressStatus(
-    line: Pick<BudgetLineProgress, 'planned' | 'percentageUsed'>,
+    line: Pick<BudgetLineProgress, 'totalBudgeted' | 'percentSpent'>,
   ): ProgressStatus {
-    if (line.planned === 0 || line.percentageUsed === null) return 'no_plan';
-    if (line.percentageUsed > 100) return 'over_budget';
-    if (line.percentageUsed === 100) return 'at_limit';
-    if (line.percentageUsed >= 80) return 'approaching';
+    if (line.totalBudgeted === 0 || line.percentSpent === null) return 'no_plan';
+    if (line.percentSpent > 100) return 'over_budget';
+    if (line.percentSpent === 100) return 'at_limit';
+    if (line.percentSpent >= 80) return 'approaching';
     return 'on_track';
   }
 
   protected progressStatusLabel(
-    line: Pick<BudgetLineProgress, 'planned' | 'percentageUsed'>,
+    line: Pick<BudgetLineProgress, 'totalBudgeted' | 'percentSpent'>,
   ): string {
     return {
       no_plan: 'No plan',
@@ -654,7 +676,31 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
     return value === null ? 0 : Math.min(100, Math.max(0, value));
   }
 
-  protected progressColor(line: Pick<BudgetLineProgress, 'planned' | 'percentageUsed'>): string {
+  protected absolute(value: number): number {
+    return Math.abs(value);
+  }
+
+  protected varianceLabel(value: number): string {
+    if (value > 0) return 'Under target';
+    if (value < 0) return 'Over target';
+    return 'On target';
+  }
+
+  protected componentName(component: BudgetProgressComponent): string {
+    return component.name ?? this.categoryName(component.categoryId);
+  }
+
+  protected componentSourceLabel(component: BudgetProgressComponent): string {
+    return component.source === 'recurring' ? 'Recurring bill' : 'Flexible target';
+  }
+
+  protected componentStatusLabel(component: BudgetProgressComponent): string {
+    return component.status === 'satisfied' ? 'Satisfied' : 'Outstanding';
+  }
+
+  protected progressColor(
+    line: Pick<BudgetLineProgress, 'totalBudgeted' | 'percentSpent'>,
+  ): string {
     return {
       no_plan: 'var(--color-muted)',
       on_track: 'var(--color-positive)',
@@ -855,7 +901,7 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
       case 'remaining':
         return left.remaining - right.remaining;
       case 'percentage':
-        return (left.percentageUsed ?? -Infinity) - (right.percentageUsed ?? -Infinity);
+        return (left.percentSpent ?? -Infinity) - (right.percentSpent ?? -Infinity);
       case 'status':
         return this.progressStatusLabel(left).localeCompare(this.progressStatusLabel(right));
       default:

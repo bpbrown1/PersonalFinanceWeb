@@ -33,10 +33,17 @@ export interface FinancialTransaction {
   merchantPayee: string | null;
   notes: string | null;
   externalReference: string | null;
+  recurringExpenseOccurrence: RecurringExpenseOccurrenceReference | null;
   status: TransactionStatus;
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface RecurringExpenseOccurrenceReference {
+  occurrenceKey: string;
+  recurringExpenseId: string;
+  dueDate: string;
 }
 
 export interface SaveTransactionRequest {
@@ -50,6 +57,10 @@ export interface SaveTransactionRequest {
   merchantPayee: string | null;
   notes: string | null;
   externalReference: string | null;
+  recurringExpenseOccurrence: {
+    recurringExpenseId: string;
+    dueDate: string;
+  } | null;
 }
 
 export interface TransactionSummary {

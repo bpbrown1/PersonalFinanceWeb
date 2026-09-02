@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { Subject, of } from 'rxjs';
+import { AccountsApiService } from '../../../api/accounts/accounts-api.service';
 import { Budget, BudgetProgress } from '../../../api/budgets/budget.models';
 import { BudgetsApiService } from '../../../api/budgets/budgets-api.service';
 import { CategoriesApiService } from '../../../api/categories/categories-api.service';
@@ -59,6 +60,7 @@ describe('BudgetsPage', () => {
       imports: [BudgetsPage],
       providers: [
         { provide: BudgetsApiService, useValue: api },
+        { provide: AccountsApiService, useValue: { list: vi.fn(() => of([accountFixture()])) } },
         { provide: CategoriesApiService, useValue: categoriesApi },
         { provide: NotificationService, useValue: notifications },
         { provide: ApiErrorPresenter, useValue: { present: vi.fn((error) => error) } },
@@ -214,7 +216,7 @@ describe('BudgetsPage', () => {
     });
   });
 
-  it('renders overall, line-item, and unbudgeted progress with text statuses', () => {
+  it('renders flexible, recurring, and genuinely unplanned progress separately', () => {
     const fixture = TestBed.createComponent(BudgetsPage);
     fixture.detectChanges();
     const component = fixture.componentInstance as any;
@@ -225,10 +227,49 @@ describe('BudgetsPage', () => {
     const text = fixture.nativeElement.textContent;
     expect(text).toContain('Budget progress');
     expect(text).toContain('Actual spending');
+    expect(text).toContain('Total budgeted');
+    expect(text).toContain('Projected remaining');
+    expect(text).toContain('outstanding bills');
     expect(text).toContain('Over budget');
-    expect(text).toContain('Approaching limit');
-    expect(text).toContain('Unbudgeted spending');
+    expect(text).toContain('On track');
+    expect(text).toContain('Flexible spending');
+    expect(text).toContain('Bill spending');
+    expect(text).toContain('Unplanned spending');
     expect(text).toContain('Uncategorized');
+    expect(text).toContain('Budget components');
+    expect(text).toContain('Recurring bill');
+    expect(text).toContain('Annual membership');
+    expect(text).toContain('Scheduled commitments');
+    expect(text).toContain('Rent');
+    expect(text).toContain('Everyday checking');
+    expect(text).toContain('count toward total budgeted and projected usage');
+    expect(text).toContain('Recurring target only');
+    expect(text).not.toContain('After commitments');
+    expect(text).not.toContain('discretionary');
+    expect(text).toContain('has no flexible target');
+  });
+
+  it('shows a satisfied variable bill using the REST target-minus-actual variance', () => {
+    const fixture = TestBed.createComponent(BudgetsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+    component.selectBudget(budgetFixture());
+    const progress = progressFixture();
+    progress.lines[0].scheduledCommitments = [
+      commitmentFixture({
+        satisfied: true,
+        actualAmount: 72,
+        variance: 8,
+        linkedTransactionId: 'transaction-water',
+      }),
+    ];
+    component.progress.set(progress);
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('Satisfied');
+    expect(text).toContain('Actual $72.00');
+    expect(text).toContain('Under target $8.00');
   });
 
   it('filters and sorts progress lines without changing server totals', () => {
@@ -356,20 +397,45 @@ function progressFixture(): BudgetProgress {
     accountId: null,
     categoryId: null,
     planned: 525.5,
+    committed: 650,
+    scheduledTarget: 650,
+    outstandingScheduledTarget: 650,
+    totalBudgeted: 1175.5,
+    remainingAfterCommitments: -124.5,
+    underfunded: true,
+    flexibleActual: 500,
+    billActual: 89.99,
     budgetedActual: 500,
     unbudgetedActual: 50,
     totalActual: 550,
-    remaining: -24.5,
+    remaining: 625.5,
     percentageUsed: 104.66,
+    percentSpent: 46.79,
+    projectedUsage: 1200,
+    projectedRemaining: -24.5,
+    projectedPercentage: 102.08,
     lines: [
       {
         lineId: 'line-1',
         categoryId: 'category-1',
         position: 0,
         planned: 400,
+        committed: 450,
+        scheduledTarget: 450,
+        outstandingScheduledTarget: 450,
+        totalBudgeted: 850,
+        remainingAfterCommitments: -50,
+        underfunded: true,
+        scheduledCommitments: [commitmentFixture()],
+        flexibleActual: 340,
+        billActual: 0,
         actual: 340,
-        remaining: 60,
+        remaining: 510,
         percentageUsed: 85,
+        percentSpent: 40,
+        projectedUsage: 790,
+        projectedRemaining: 60,
+        projectedPercentage: 92.94,
         drillDown: drillDown(['category-1', 'category-child'], ['transaction-1']),
       },
       {
@@ -377,10 +443,73 @@ function progressFixture(): BudgetProgress {
         categoryId: 'category-2',
         position: 1,
         planned: 125.5,
+        committed: 0,
+        scheduledTarget: 0,
+        outstandingScheduledTarget: 0,
+        totalBudgeted: 125.5,
+        remainingAfterCommitments: 125.5,
+        underfunded: false,
+        scheduledCommitments: [],
+        flexibleActual: 160,
+        billActual: 0,
         actual: 160,
         remaining: -34.5,
         percentageUsed: 127.49,
+        percentSpent: 127.49,
+        projectedUsage: 160,
+        projectedRemaining: -34.5,
+        projectedPercentage: 127.49,
         drillDown: drillDown(['category-2'], ['transaction-2']),
+      },
+    ],
+    components: [
+      {
+        componentKey: 'line:line-1',
+        source: 'flexible',
+        lineId: 'line-1',
+        occurrenceKey: null,
+        recurringExpenseId: null,
+        categoryId: 'category-1',
+        position: 0,
+        name: null,
+        dueDate: null,
+        target: 400,
+        actual: 340,
+        remaining: 60,
+        percentageUsed: 85,
+        projectedUsage: 340,
+        projectedRemaining: 60,
+        projectedPercentage: 85,
+        status: 'outstanding',
+        variance: null,
+        linkedTransactionId: null,
+        drillDown: drillDown(['category-1'], ['transaction-1']),
+      },
+      {
+        componentKey: 'occurrence:bill-2:2026-09-15',
+        source: 'recurring',
+        lineId: null,
+        occurrenceKey: 'bill-2:2026-09-15',
+        recurringExpenseId: 'bill-2',
+        categoryId: 'category-2',
+        position: null,
+        name: 'Annual membership',
+        dueDate: '2026-09-15',
+        target: 200,
+        actual: 89.99,
+        remaining: 110.01,
+        percentageUsed: 45,
+        projectedUsage: 89.99,
+        projectedRemaining: 110.01,
+        projectedPercentage: 45,
+        status: 'satisfied',
+        variance: 110.01,
+        linkedTransactionId: 'transaction-bill-2',
+        drillDown: {
+          ...drillDown(['category-2'], ['transaction-bill-2']),
+          transactionsPath:
+            '/api/v1/budgets/budget-1/progress/transactions?scope=component&occurrenceKey=bill-2%3A2026-09-15',
+        },
       },
     ],
     unbudgeted: [
@@ -390,10 +519,74 @@ function progressFixture(): BudgetProgress {
         drillDown: drillDown([], ['transaction-3']),
       },
     ],
+    unbudgetedCommitments: [
+      {
+        categoryId: 'category-2',
+        committed: 200,
+        scheduledTarget: 200,
+        outstandingScheduledTarget: 200,
+        totalBudgeted: 200,
+        billActual: 89.99,
+        actual: 0,
+        remaining: 200,
+        percentSpent: 0,
+        projectedUsage: 200,
+        projectedRemaining: 0,
+        projectedPercentage: 100,
+        scheduledCommitments: [
+          commitmentFixture({
+            occurrenceKey: 'bill-2:2026-09-15',
+            recurringExpenseId: 'bill-2',
+            name: 'Annual membership',
+            dueDate: '2026-09-15',
+            amount: 200,
+            categoryId: 'category-2',
+            accountId: null,
+          }),
+        ],
+      },
+    ],
     drillDown: drillDown(
       ['category-1', 'category-child', 'category-2'],
       ['transaction-1', 'transaction-2', 'transaction-3'],
     ),
+  };
+}
+
+function commitmentFixture(
+  overrides: Partial<BudgetProgress['lines'][number]['scheduledCommitments'][number]> = {},
+): BudgetProgress['lines'][number]['scheduledCommitments'][number] {
+  return {
+    occurrenceKey: 'bill-1:2026-09-01',
+    recurringExpenseId: 'bill-1',
+    name: 'Rent',
+    dueDate: '2026-09-01',
+    amount: 450,
+    currency: 'USD',
+    categoryId: 'category-1',
+    accountId: 'account-1',
+    satisfied: false,
+    actualAmount: null,
+    variance: null,
+    linkedTransactionId: null,
+    ...overrides,
+  };
+}
+
+function accountFixture() {
+  return {
+    id: 'account-1',
+    ownerId: 'owner-1',
+    name: 'Everyday checking',
+    type: 'checking' as const,
+    currency: 'USD',
+    openingDate: '2026-01-01',
+    openingBalance: 1000,
+    currentBalance: 500,
+    status: 'active' as const,
+    archivedAt: null,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-09-01T00:00:00Z',
   };
 }
 

@@ -148,76 +148,78 @@
     </div>
     <div class="budget-toolbar-actions">
       @if (!loading() && !loadError()) {
-        <span class="budget-count">{{ budgets().length }} {{ budgets().length === 1 ? 'plan' : 'plans' }}</span>
+        <span class="budget-count"
+          >{{ budgets().length }} {{ budgets().length === 1 ? 'plan' : 'plans' }}</span
+        >
       }
-<nav class="filters" aria-label="Budget status">
-  <button
-    type="button"
-    [class.selected]="filter() === 'active'"
-    [attr.aria-pressed]="filter() === 'active'"
-    (click)="selectFilter('active')"
-  >
-    Active
-  </button>
-  <button
-    type="button"
-    [class.selected]="filter() === 'archived'"
-    [attr.aria-pressed]="filter() === 'archived'"
-    (click)="selectFilter('archived')"
-  >
-    Archived
-  </button>
-</nav>
+      <nav class="filters" aria-label="Budget status">
+        <button
+          type="button"
+          [class.selected]="filter() === 'active'"
+          [attr.aria-pressed]="filter() === 'active'"
+          (click)="selectFilter('active')"
+        >
+          Active
+        </button>
+        <button
+          type="button"
+          [class.selected]="filter() === 'archived'"
+          [attr.aria-pressed]="filter() === 'archived'"
+          (click)="selectFilter('archived')"
+        >
+          Archived
+        </button>
+      </nav>
     </div>
   </div>
 
-@if (loading()) {
-  <app-page-state
-    kind="loading"
-    title="Loading budgets"
-    message="Retrieving your monthly plans and category targets."
-  />
-} @else if (loadError()) {
-  <app-page-state
-    kind="error"
-    title="Budgets unavailable"
-    [message]="loadError()!.userMessage"
-    actionLabel="Retry"
-    (action)="load()"
-  />
-} @else if (budgets().length === 0) {
-  <app-page-state
-    kind="empty"
-    [title]="filter() === 'active' ? 'No active budgets yet' : 'No archived budgets'"
-    [message]="
-      filter() === 'active'
-        ? 'Create your first monthly plan above.'
-        : 'Archived plans will remain available here.'
-    "
-  />
-} @else {
-  <section class="budget-grid" [attr.aria-label]="filter() + ' budgets'">
-    @for (budget of budgets(); track budget.id) {
-      <button
-        type="button"
-        class="budget-card"
-        [class.selected]="selectedBudget()?.id === budget.id"
-        (click)="selectBudget(budget)"
-      >
-        <span class="status-pill" [class.archived]="budget.status === 'archived'">{{
-          budget.status
-        }}</span>
-        <span class="period">{{ periodLabel(budget) }}</span>
-        <strong class="budget-name">{{ budget.name }}</strong>
-        <span class="budget-total">{{ budget.totalPlanned | currency: budget.currency }}</span>
-        <span class="line-count"
-          >{{ budget.lines.length }} retained
-          {{ budget.lines.length === 1 ? 'line' : 'lines' }}</span
+  @if (loading()) {
+    <app-page-state
+      kind="loading"
+      title="Loading budgets"
+      message="Retrieving your monthly plans and category targets."
+    />
+  } @else if (loadError()) {
+    <app-page-state
+      kind="error"
+      title="Budgets unavailable"
+      [message]="loadError()!.userMessage"
+      actionLabel="Retry"
+      (action)="load()"
+    />
+  } @else if (budgets().length === 0) {
+    <app-page-state
+      kind="empty"
+      [title]="filter() === 'active' ? 'No active budgets yet' : 'No archived budgets'"
+      [message]="
+        filter() === 'active'
+          ? 'Create your first monthly plan above.'
+          : 'Archived plans will remain available here.'
+      "
+    />
+  } @else {
+    <section class="budget-grid" [attr.aria-label]="filter() + ' budgets'">
+      @for (budget of budgets(); track budget.id) {
+        <button
+          type="button"
+          class="budget-card"
+          [class.selected]="selectedBudget()?.id === budget.id"
+          (click)="selectBudget(budget)"
         >
-      </button>
-    }
-  </section>
-}
+          <span class="status-pill" [class.archived]="budget.status === 'archived'">{{
+            budget.status
+          }}</span>
+          <span class="period">{{ periodLabel(budget) }}</span>
+          <strong class="budget-name">{{ budget.name }}</strong>
+          <span class="budget-total">{{ budget.totalPlanned | currency: budget.currency }}</span>
+          <span class="line-count"
+            >{{ budget.lines.length }} retained
+            {{ budget.lines.length === 1 ? 'line' : 'lines' }}</span
+          >
+        </button>
+      }
+    </section>
+  }
 }
 
 @if (detailLoading()) {
@@ -288,12 +290,7 @@
           </div>
           <div class="field">
             <label for="copy-target-month">Target month</label>
-            <input
-              pInputText
-              id="copy-target-month"
-              type="month"
-              formControlName="targetMonth"
-            />
+            <input pInputText id="copy-target-month" type="month" formControlName="targetMonth" />
             @if (copyTargetSame(budget)) {
               <p class="field-error">Choose a month other than the source month.</p>
             }
@@ -407,12 +404,7 @@
           <div class="copy-error" role="alert">
             <p class="field-error">{{ formError(copyError()) }}</p>
             @if (copyError()?.existingBudgetId; as existingId) {
-              <button
-                pButton
-                type="button"
-                [text]="true"
-                (click)="openExistingBudget(existingId)"
-              >
+              <button pButton type="button" [text]="true" (click)="openExistingBudget(existingId)">
                 Open existing budget
               </button>
             }
@@ -428,511 +420,735 @@
     }
 
     @if (detailView() === 'overview') {
-    <section class="progress-section" aria-labelledby="budget-progress-heading">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Plan versus actual</p>
-          <h3 id="budget-progress-heading">Budget progress</h3>
-          <p>
-            Posted expenses from {{ budget.startDate | date: 'mediumDate' }} through
-            {{ budget.endDate | date: 'mediumDate' }}.
-          </p>
-        </div>
-        <button
-          pButton
-          type="button"
-          severity="secondary"
-          [outlined]="true"
-          [disabled]="progressLoading()"
-          (click)="loadProgress(budget.id)"
-        >
-          {{ progressLoading() ? 'Refreshing…' : 'Refresh progress' }}
-        </button>
-      </div>
-
-      @if (progressLoading() && !progress()) {
-        <app-page-state
-          kind="loading"
-          title="Calculating budget progress"
-          message="Matching posted expenses to this plan."
-        />
-      } @else if (progressError()) {
-        <app-page-state
-          kind="error"
-          title="Budget progress unavailable"
-          [message]="progressError()!.userMessage"
-          actionLabel="Retry"
-          (action)="loadProgress(budget.id)"
-        />
-      } @else if (progress(); as data) {
-        <div class="overall-progress" [class]="'overall-progress ' + progressStatus(data)">
-          <div class="progress-metrics">
-            <div>
-              <span>Planned</span>
-              <strong>{{ data.planned | currency: data.currency }}</strong>
-            </div>
-            <div>
-              <span>Actual spending</span>
-              <strong>{{ data.totalActual | currency: data.currency }}</strong>
-            </div>
-            <div>
-              <span>Remaining</span>
-              <strong [class.negative-value]="data.remaining < 0">{{
-                data.remaining | currency: data.currency
-              }}</strong>
-            </div>
-            <div>
-              <span>Status</span>
-              <strong>{{ progressStatusLabel(data) }}</strong>
-            </div>
-          </div>
-          <p-progressbar
-            class="budget-progress-bar"
-            aria-label="Overall budget used"
-            [value]="visualPercentage(data.percentageUsed)"
-            [showValue]="false"
-            [color]="progressColor(data)"
-          />
-          <div class="progress-caption">
-            <strong>{{ percentageLabel(data.percentageUsed) }}</strong>
-            <span>{{ progressStatusLabel(data) }}</span>
-          </div>
-          <div class="spending-breakdown">
-            <div>
-              <span>Matched to budget lines</span>
-              <strong>{{ data.budgetedActual | currency: data.currency }}</strong>
-            </div>
-            <div>
-              <span>Unbudgeted spending</span>
-              <strong [class.negative-value]="data.unbudgetedActual > 0">{{
-                data.unbudgetedActual | currency: data.currency
-              }}</strong>
-            </div>
-            <button pButton type="button" [text]="true" (click)="openDrillDown(data.drillDown)">
-              Review period activity
-            </button>
-          </div>
-        </div>
-
-        <section class="line-progress-section" aria-labelledby="line-progress-heading">
-          <div class="progress-table-heading">
-            <div>
-              <h4 id="line-progress-heading">Category progress</h4>
-              <p>Compare exact values or narrow the list by health.</p>
-            </div>
-            <div class="progress-controls">
-              <div class="field">
-                <label for="progress-status-filter">Status</label>
-                <p-select
-                  inputId="progress-status-filter"
-                  [options]="progressStatusOptions"
-                  optionLabel="label"
-                  optionValue="value"
-                  [ngModel]="progressStatusFilter()"
-                  [ngModelOptions]="{ standalone: true }"
-                  (onChange)="setProgressStatusFilter($event.value)"
-                />
-              </div>
-              <div class="field">
-                <label for="progress-sort">Sort by</label>
-                <p-select
-                  inputId="progress-sort"
-                  [options]="progressSortOptions"
-                  optionLabel="label"
-                  optionValue="value"
-                  [ngModel]="progressSort()"
-                  [ngModelOptions]="{ standalone: true }"
-                  (onChange)="setProgressSort($event.value)"
-                />
-              </div>
-              <button
-                pButton
-                type="button"
-                class="sort-direction"
-                severity="secondary"
-                [outlined]="true"
-                [rounded]="true"
-                [iconOnly]="true"
-                [attr.aria-label]="
-                  progressSortDirection() === 'asc'
-                    ? 'Sort category progress descending'
-                    : 'Sort category progress ascending'
-                "
-                (click)="toggleProgressSortDirection()"
-              >
-                {{ progressSortDirection() === 'asc' ? '↑' : '↓' }}
-              </button>
-            </div>
-          </div>
-
-          @if (data.lines.length === 0) {
-            <p class="lines-empty">No active category targets are available for progress.</p>
-          } @else if (visibleProgressLines().length === 0) {
-            <p class="lines-empty">No category targets match this status filter.</p>
-          } @else {
-            <div class="progress-table-wrap">
-              <table class="progress-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Category</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Planned</th>
-                    <th scope="col">Actual</th>
-                    <th scope="col">Remaining</th>
-                    <th scope="col">Used</th>
-                    <th scope="col">Activity</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (line of visibleProgressLines(); track line.lineId) {
-                    <tr [class]="progressStatus(line)">
-                      <th scope="row">{{ categoryName(line.categoryId) }}</th>
-                      <td>
-                        <span class="progress-status">{{ progressStatusLabel(line) }}</span>
-                      </td>
-                      <td>{{ line.planned | currency: data.currency }}</td>
-                      <td>{{ line.actual | currency: data.currency }}</td>
-                      <td [class.negative-value]="line.remaining < 0">
-                        {{ line.remaining | currency: data.currency }}
-                      </td>
-                      <td class="used-cell">
-                        <span>{{ percentageLabel(line.percentageUsed) }}</span>
-                        <p-progressbar
-                          class="budget-progress-bar compact"
-                          [attr.aria-label]="categoryName(line.categoryId) + ' budget used'"
-                          [value]="visualPercentage(line.percentageUsed)"
-                          [showValue]="false"
-                          [color]="progressColor(line)"
-                        />
-                      </td>
-                      <td>
-                        <button
-                          pButton
-                          type="button"
-                          class="table-action"
-                          [text]="true"
-                          (click)="openDrillDown(line.drillDown)"
-                        >
-                          View activity
-                        </button>
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          }
-        </section>
-
-        <section class="unbudgeted-section" aria-labelledby="unbudgeted-heading">
+      <section class="progress-section" aria-labelledby="budget-progress-heading">
+        <div class="section-heading">
           <div>
-            <h4 id="unbudgeted-heading">Unbudgeted spending</h4>
-            <p>Posted expenses that did not match an active budget line.</p>
+            <p class="eyebrow">Plan, bills, and actuals</p>
+            <h3 id="budget-progress-heading">Budget progress</h3>
+            <p>
+              Posted expenses from {{ budget.startDate | date: 'mediumDate' }} through
+              {{ budget.endDate | date: 'mediumDate' }}, plus scheduled commitments due in this
+              month.
+            </p>
           </div>
-          @if (data.unbudgeted.length === 0) {
-            <p class="unbudgeted-clear">
-              <strong>Nothing unbudgeted.</strong> Every posted expense matched this plan.
-            </p>
-          } @else {
-            <ul>
-              @for (item of data.unbudgeted; track item.categoryId ?? 'uncategorized') {
-                <li>
-                  <span>{{
-                    item.categoryId ? categoryName(item.categoryId) : 'Uncategorized'
-                  }}</span>
-                  <strong>{{ item.actual | currency: data.currency }}</strong>
-                  <button
-                    pButton
-                    type="button"
-                    class="unbudgeted-action"
-                    [text]="true"
-                    (click)="openDrillDown(item.drillDown)"
-                  >
-                    View activity
-                  </button>
-                </li>
-              }
-            </ul>
-          }
-        </section>
-      }
-    </section>
-    }
-
-    @if (detailView() === 'plan') {
-    @if (budget.status === 'archived') {
-      <div class="restriction-note" role="note">
-        <strong>This budget is archived.</strong>
-        Restore it before changing metadata or category targets. Its historical definition remains
-        visible.
-      </div>
-    }
-
-    @if (editingBudget()) {
-      <form
-        class="edit-budget-form"
-        [formGroup]="editForm"
-        (ngSubmit)="saveBudget(budget)"
-        novalidate
-      >
-        <div class="field">
-          <label for="edit-budget-name">Budget name</label>
-          <input pInputText id="edit-budget-name" formControlName="name" maxlength="100" />
-          @if (fieldError(editError(), 'name')) {
-            <p class="field-error">{{ fieldError(editError(), 'name') }}</p>
-          }
-        </div>
-        <div class="field">
-          <label for="edit-budget-month">Month</label>
-          <input pInputText id="edit-budget-month" type="month" formControlName="month" />
-          @if (fieldError(editError(), 'startDate') || fieldError(editError(), 'endDate')) {
-            <p class="field-error">
-              {{ fieldError(editError(), 'startDate') || fieldError(editError(), 'endDate') }}
-            </p>
-          }
-        </div>
-        <div class="field">
-          <label for="edit-budget-currency">Currency</label>
-          <input
-            pInputText
-            id="edit-budget-currency"
-            formControlName="currency"
-            maxlength="3"
-          />
-        </div>
-        @if (formError(editError())) {
-          <p class="field-error form-error" role="alert">{{ formError(editError()) }}</p>
-        }
-        <footer>
-          <button pButton type="button" [text]="true" (click)="cancelBudgetEdit()">Cancel</button>
-          <button pButton type="submit" [disabled]="mutationBusy()">
-            {{ editSubmission.busy() ? 'Saving…' : 'Save budget' }}
-          </button>
-        </footer>
-      </form>
-    } @else {
-      <div class="budget-actions">
-        <button
-          pButton
-          type="button"
-          severity="secondary"
-          [outlined]="true"
-          (click)="startCopy(budget)"
-        >
-          Copy to another month
-        </button>
-        @if (budget.status === 'active') {
           <button
             pButton
             type="button"
             severity="secondary"
             [outlined]="true"
-            (click)="startBudgetEdit(budget)"
+            [disabled]="progressLoading()"
+            (click)="loadProgress(budget.id)"
           >
-            Edit budget
+            {{ progressLoading() ? 'Refreshing…' : 'Refresh progress' }}
           </button>
-          <button
-            pButton
-            type="button"
-            severity="danger"
-            [outlined]="true"
-            [disabled]="mutationBusy()"
-            (click)="archiveBudget(budget)"
-          >
-            Archive budget
-          </button>
-        } @else {
-          <button
-            pButton
-            type="button"
-            [disabled]="mutationBusy()"
-            (click)="restoreBudget(budget)"
-          >
-            Restore budget
-          </button>
+        </div>
+
+        @if (progressLoading() && !progress()) {
+          <app-page-state
+            kind="loading"
+            title="Calculating budget progress"
+            message="Matching posted expenses to this plan."
+          />
+        } @else if (progressError()) {
+          <app-page-state
+            kind="error"
+            title="Budget progress unavailable"
+            [message]="progressError()!.userMessage"
+            actionLabel="Retry"
+            (action)="loadProgress(budget.id)"
+          />
+        } @else if (progress(); as data) {
+          <div class="overall-progress" [class]="'overall-progress ' + progressStatus(data)">
+            <div class="progress-metrics">
+              <div>
+                <span>Flexible plan</span>
+                <strong>{{ data.planned | currency: data.currency }}</strong>
+              </div>
+              <div>
+                <span>Bill targets</span>
+                <strong>{{ data.scheduledTarget | currency: data.currency }}</strong>
+              </div>
+              <div>
+                <span>Total budgeted</span>
+                <strong>{{ data.totalBudgeted | currency: data.currency }}</strong>
+              </div>
+              <div>
+                <span>Actual spending</span>
+                <strong>{{ data.totalActual | currency: data.currency }}</strong>
+              </div>
+              <div>
+                <span>Remaining</span>
+                <strong [class.negative-value]="data.remaining < 0">{{
+                  data.remaining | currency: data.currency
+                }}</strong>
+              </div>
+              <div>
+                <span>Projected remaining</span>
+                <strong [class.negative-value]="data.projectedRemaining < 0">{{
+                  data.projectedRemaining | currency: data.currency
+                }}</strong>
+              </div>
+              <div>
+                <span>Status</span>
+                <strong>{{ progressStatusLabel(data) }}</strong>
+              </div>
+            </div>
+            <p class="commitment-note" role="note">
+              <strong>Bill targets are forecasts.</strong> Outstanding targets contribute to the
+              projection. Once a bill is explicitly matched, its actual transaction replaces the
+              target so it is never counted twice.
+            </p>
+            <p-progressbar
+              class="budget-progress-bar"
+              aria-label="Overall budget spent"
+              [value]="visualPercentage(data.percentSpent)"
+              [showValue]="false"
+              [color]="progressColor(data)"
+            />
+            <div class="progress-caption">
+              <strong>{{ percentageLabel(data.percentSpent) }}</strong>
+              <span>Actual spending · {{ progressStatusLabel(data) }}</span>
+            </div>
+            <p-progressbar
+              class="budget-progress-bar projected"
+              aria-label="Overall projected budget usage"
+              [value]="visualPercentage(data.projectedPercentage)"
+              [showValue]="false"
+              color="var(--color-primary)"
+            />
+            <div class="progress-caption projected-caption">
+              <strong>{{ percentageLabel(data.projectedPercentage) }}</strong>
+              <span>
+                Projected from actual spending plus
+                {{ data.outstandingScheduledTarget | currency: data.currency }} outstanding bills
+              </span>
+            </div>
+            <div class="spending-breakdown">
+              <div>
+                <span>Flexible spending</span>
+                <strong>{{ data.flexibleActual | currency: data.currency }}</strong>
+              </div>
+              <div>
+                <span>Bill spending</span>
+                <strong>{{ data.billActual | currency: data.currency }}</strong>
+              </div>
+              <div>
+                <span>Unplanned spending</span>
+                <strong [class.negative-value]="data.unbudgetedActual > 0">{{
+                  data.unbudgetedActual | currency: data.currency
+                }}</strong>
+              </div>
+              <button pButton type="button" [text]="true" (click)="openDrillDown(data.drillDown)">
+                Review period activity
+              </button>
+            </div>
+          </div>
+
+          <section class="line-progress-section" aria-labelledby="line-progress-heading">
+            <div class="progress-table-heading">
+              <div>
+                <h4 id="line-progress-heading">Category progress</h4>
+                <p>Compare exact values or narrow the list by health.</p>
+              </div>
+              <div class="progress-controls">
+                <div class="field">
+                  <label for="progress-status-filter">Status</label>
+                  <p-select
+                    inputId="progress-status-filter"
+                    [options]="progressStatusOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                    [ngModel]="progressStatusFilter()"
+                    [ngModelOptions]="{ standalone: true }"
+                    (onChange)="setProgressStatusFilter($event.value)"
+                  />
+                </div>
+                <div class="field">
+                  <label for="progress-sort">Sort by</label>
+                  <p-select
+                    inputId="progress-sort"
+                    [options]="progressSortOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                    [ngModel]="progressSort()"
+                    [ngModelOptions]="{ standalone: true }"
+                    (onChange)="setProgressSort($event.value)"
+                  />
+                </div>
+                <button
+                  pButton
+                  type="button"
+                  class="sort-direction"
+                  severity="secondary"
+                  [outlined]="true"
+                  [rounded]="true"
+                  [iconOnly]="true"
+                  [attr.aria-label]="
+                    progressSortDirection() === 'asc'
+                      ? 'Sort category progress descending'
+                      : 'Sort category progress ascending'
+                  "
+                  (click)="toggleProgressSortDirection()"
+                >
+                  {{ progressSortDirection() === 'asc' ? '↑' : '↓' }}
+                </button>
+              </div>
+            </div>
+
+            @if (data.lines.length === 0) {
+              <p class="lines-empty">No active category targets are available for progress.</p>
+            } @else if (visibleProgressLines().length === 0) {
+              <p class="lines-empty">No category targets match this status filter.</p>
+            } @else {
+              <div class="progress-table-wrap">
+                <table class="progress-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Category</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Flexible plan</th>
+                      <th scope="col">Bill targets</th>
+                      <th scope="col">Total budgeted</th>
+                      <th scope="col">Actual</th>
+                      <th scope="col">Projected</th>
+                      <th scope="col">Remaining</th>
+                      <th scope="col">Used</th>
+                      <th scope="col">Activity</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (line of visibleProgressLines(); track line.lineId) {
+                      <tr [class]="progressStatus(line)">
+                        <th scope="row">{{ categoryName(line.categoryId) }}</th>
+                        <td>
+                          <span class="progress-status">{{ progressStatusLabel(line) }}</span>
+                        </td>
+                        <td>{{ line.planned | currency: data.currency }}</td>
+                        <td>{{ line.scheduledTarget | currency: data.currency }}</td>
+                        <td>{{ line.totalBudgeted | currency: data.currency }}</td>
+                        <td>{{ line.actual | currency: data.currency }}</td>
+                        <td>{{ line.projectedUsage | currency: data.currency }}</td>
+                        <td [class.negative-value]="line.remaining < 0">
+                          {{ line.remaining | currency: data.currency }}
+                        </td>
+                        <td class="used-cell">
+                          <span>{{ percentageLabel(line.percentSpent) }}</span>
+                          <p-progressbar
+                            class="budget-progress-bar compact"
+                            [attr.aria-label]="categoryName(line.categoryId) + ' budget used'"
+                            [value]="visualPercentage(line.percentSpent)"
+                            [showValue]="false"
+                            [color]="progressColor(line)"
+                          />
+                        </td>
+                        <td>
+                          <button
+                            pButton
+                            type="button"
+                            class="table-action"
+                            [text]="true"
+                            (click)="openDrillDown(line.drillDown)"
+                          >
+                            View activity
+                          </button>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </section>
+
+          <section class="line-progress-section" aria-labelledby="component-progress-heading">
+            <div class="progress-table-heading">
+              <div>
+                <h4 id="component-progress-heading">Budget components</h4>
+                <p>
+                  Flexible targets and recurring bills are tracked as individual parts of this
+                  month's plan.
+                </p>
+              </div>
+            </div>
+
+            @if (data.components.length === 0) {
+              <p class="lines-empty">No flexible targets or recurring bills are in this plan.</p>
+            } @else {
+              <div class="progress-table-wrap">
+                <table class="progress-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Budget item</th>
+                      <th scope="col">Type</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Target</th>
+                      <th scope="col">Actual</th>
+                      <th scope="col">Projected</th>
+                      <th scope="col">Remaining</th>
+                      <th scope="col">Used</th>
+                      <th scope="col">Activity</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (component of data.components; track component.componentKey) {
+                      <tr [class.no_plan]="component.status === 'outstanding'">
+                        <th scope="row">
+                          <span class="line-copy">
+                            <strong>{{ componentName(component) }}</strong>
+                            <small>
+                              {{ categoryName(component.categoryId) }}
+                              @if (component.dueDate) {
+                                · due {{ component.dueDate | date: 'mediumDate' }}
+                              }
+                            </small>
+                          </span>
+                        </th>
+                        <td>
+                          <span class="progress-status">
+                            {{ componentSourceLabel(component) }}
+                          </span>
+                        </td>
+                        <td>
+                          <span class="progress-status">
+                            {{ componentStatusLabel(component) }}
+                          </span>
+                        </td>
+                        <td>{{ component.target | currency: data.currency }}</td>
+                        <td>{{ component.actual | currency: data.currency }}</td>
+                        <td>{{ component.projectedUsage | currency: data.currency }}</td>
+                        <td [class.negative-value]="component.remaining < 0">
+                          {{ component.remaining | currency: data.currency }}
+                        </td>
+                        <td class="used-cell">
+                          <span>{{ percentageLabel(component.percentageUsed) }}</span>
+                          <p-progressbar
+                            class="budget-progress-bar compact"
+                            [attr.aria-label]="componentName(component) + ' budget item used'"
+                            [value]="visualPercentage(component.percentageUsed)"
+                            [showValue]="false"
+                            color="var(--color-primary)"
+                          />
+                        </td>
+                        <td>
+                          <button
+                            pButton
+                            type="button"
+                            class="table-action"
+                            [text]="true"
+                            (click)="openDrillDown(component.drillDown)"
+                          >
+                            View activity
+                          </button>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </section>
+
+          <section class="commitments-section" aria-labelledby="commitments-heading">
+            <div>
+              <h4 id="commitments-heading">Scheduled commitments</h4>
+              <p>
+                Bills and subscriptions due during {{ periodLabel(budget) }}, grouped by category.
+              </p>
+            </div>
+            @if (!hasCommitments(data)) {
+              <p class="unbudgeted-clear">
+                <strong>No fixed commitments due.</strong> This month's plan has no matching
+                recurring forecasts.
+              </p>
+            } @else {
+              <div class="commitment-groups">
+                @for (line of data.lines; track line.lineId) {
+                  @if (line.scheduledCommitments.length > 0) {
+                    <article>
+                      <header>
+                        <div>
+                          <h5>{{ categoryName(line.categoryId) }}</h5>
+                          <span>{{ line.scheduledCommitments.length }} scheduled</span>
+                        </div>
+                        <div class="commitment-total">
+                          <strong>{{ line.scheduledTarget | currency: data.currency }}</strong>
+                          <span>bill targets in this category</span>
+                        </div>
+                      </header>
+                      <ul>
+                        @for (item of line.scheduledCommitments; track item.occurrenceKey) {
+                          <li [class.satisfied]="item.satisfied">
+                            <div>
+                              <strong>{{ item.name }}</strong
+                              ><span>
+                                {{ accountName(item.accountId) }} ·
+                                {{ item.satisfied ? 'Satisfied' : 'Outstanding' }}
+                              </span>
+                            </div>
+                            <span>{{ item.dueDate | date: 'mediumDate' }}</span>
+                            <div class="commitment-amounts">
+                              <strong>Target {{ item.amount | currency: item.currency }}</strong>
+                              @if (item.actualAmount !== null) {
+                                <span
+                                  >Actual {{ item.actualAmount | currency: item.currency }}</span
+                                >
+                                <span [class.negative-value]="(item.variance ?? 0) < 0">
+                                  {{ varianceLabel(item.variance ?? 0) }}
+                                  {{ absolute(item.variance ?? 0) | currency: item.currency }}
+                                </span>
+                              }
+                            </div>
+                          </li>
+                        }
+                      </ul>
+                    </article>
+                  }
+                }
+                @for (group of data.unbudgetedCommitments; track group.categoryId) {
+                  <article class="unmatched">
+                    <header>
+                      <div>
+                        <h5>{{ categoryName(group.categoryId) }}</h5>
+                        <span>Recurring target only</span>
+                      </div>
+                      <strong>{{ group.scheduledTarget | currency: data.currency }}</strong>
+                    </header>
+                    <p class="commitment-warning" role="status">
+                      This category has no flexible target. Its recurring bills still count toward
+                      total budgeted and projected usage.
+                    </p>
+                    <ul>
+                      @for (item of group.scheduledCommitments; track item.occurrenceKey) {
+                        <li [class.satisfied]="item.satisfied">
+                          <div>
+                            <strong>{{ item.name }}</strong
+                            ><span>
+                              {{ accountName(item.accountId) }} ·
+                              {{ item.satisfied ? 'Satisfied' : 'Outstanding' }}
+                            </span>
+                          </div>
+                          <span>{{ item.dueDate | date: 'mediumDate' }}</span>
+                          <div class="commitment-amounts">
+                            <strong>Target {{ item.amount | currency: item.currency }}</strong>
+                            @if (item.actualAmount !== null) {
+                              <span>Actual {{ item.actualAmount | currency: item.currency }}</span>
+                            }
+                          </div>
+                        </li>
+                      }
+                    </ul>
+                  </article>
+                }
+              </div>
+            }
+          </section>
+
+          <section class="unbudgeted-section" aria-labelledby="unbudgeted-heading">
+            <div>
+              <h4 id="unbudgeted-heading">Unplanned spending</h4>
+              <p>Posted expenses that did not match a flexible target or recurring bill.</p>
+            </div>
+            @if (data.unbudgeted.length === 0) {
+              <p class="unbudgeted-clear">
+                <strong>Nothing unplanned.</strong> Every posted expense matched this plan.
+              </p>
+            } @else {
+              <ul>
+                @for (item of data.unbudgeted; track item.categoryId ?? 'uncategorized') {
+                  <li>
+                    <span>{{
+                      item.categoryId ? categoryName(item.categoryId) : 'Uncategorized'
+                    }}</span>
+                    <strong>{{ item.actual | currency: data.currency }}</strong>
+                    <button
+                      pButton
+                      type="button"
+                      class="unbudgeted-action"
+                      [text]="true"
+                      (click)="openDrillDown(item.drillDown)"
+                    >
+                      View activity
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          </section>
         }
-      </div>
+      </section>
     }
 
-    <section class="lines-section" aria-labelledby="budget-lines-heading">
-      <div class="section-heading">
-        <div>
-          <h3 id="budget-lines-heading">Category targets</h3>
-          <p>Ordering is retained for future planning and reporting views.</p>
+    @if (detailView() === 'plan') {
+      @if (budget.status === 'archived') {
+        <div class="restriction-note" role="note">
+          <strong>This budget is archived.</strong>
+          Restore it before changing metadata or category targets. Its historical definition remains
+          visible.
         </div>
-        @if (budget.status === 'active' && editingLineId() === null) {
-          <button pButton type="button" (click)="startAddLine()">Add line</button>
-        }
-      </div>
+      }
 
-      @if (editingLineId() === 'new') {
-        <form class="line-form" [formGroup]="lineForm" (ngSubmit)="saveLine(budget)" novalidate>
+      @if (editingBudget()) {
+        <form
+          class="edit-budget-form"
+          [formGroup]="editForm"
+          (ngSubmit)="saveBudget(budget)"
+          novalidate
+        >
           <div class="field">
-            <label for="new-line-category">Category</label>
-            <p-select
-              inputId="new-line-category"
-              formControlName="categoryId"
-              [options]="lineCategorySelectOptions(budget)"
-              optionLabel="label"
-              optionValue="value"
-              placeholder="Select an expense category"
-            />
-            @if (fieldError(lineError(), 'categoryId')) {
-              <p class="field-error">{{ fieldError(lineError(), 'categoryId') }}</p>
+            <label for="edit-budget-name">Budget name</label>
+            <input pInputText id="edit-budget-name" formControlName="name" maxlength="100" />
+            @if (fieldError(editError(), 'name')) {
+              <p class="field-error">{{ fieldError(editError(), 'name') }}</p>
             }
           </div>
           <div class="field">
-            <label for="new-line-amount">Planned amount</label>
-            <p-inputnumber
-              inputId="new-line-amount"
-              formControlName="plannedAmount"
-              mode="decimal"
-              [min]="0"
-              [minFractionDigits]="0"
-              [maxFractionDigits]="2"
-              [useGrouping]="false"
-            />
-            @if (fieldError(lineError(), 'plannedAmount')) {
-              <p class="field-error">{{ fieldError(lineError(), 'plannedAmount') }}</p>
+            <label for="edit-budget-month">Month</label>
+            <input pInputText id="edit-budget-month" type="month" formControlName="month" />
+            @if (fieldError(editError(), 'startDate') || fieldError(editError(), 'endDate')) {
+              <p class="field-error">
+                {{ fieldError(editError(), 'startDate') || fieldError(editError(), 'endDate') }}
+              </p>
             }
           </div>
+          <div class="field">
+            <label for="edit-budget-currency">Currency</label>
+            <input pInputText id="edit-budget-currency" formControlName="currency" maxlength="3" />
+          </div>
+          @if (formError(editError())) {
+            <p class="field-error form-error" role="alert">{{ formError(editError()) }}</p>
+          }
           <footer>
-            <button pButton type="button" [text]="true" (click)="cancelLineEdit()">Cancel</button>
+            <button pButton type="button" [text]="true" (click)="cancelBudgetEdit()">Cancel</button>
             <button pButton type="submit" [disabled]="mutationBusy()">
-              {{ lineSubmission.busy() ? 'Adding…' : 'Add line' }}
+              {{ editSubmission.busy() ? 'Saving…' : 'Save budget' }}
             </button>
           </footer>
-          @if (formError(lineError())) {
-            <p class="field-error form-error" role="alert">{{ formError(lineError()) }}</p>
-          }
         </form>
+      } @else {
+        <div class="budget-actions">
+          <button
+            pButton
+            type="button"
+            severity="secondary"
+            [outlined]="true"
+            (click)="startCopy(budget)"
+          >
+            Copy to another month
+          </button>
+          @if (budget.status === 'active') {
+            <button
+              pButton
+              type="button"
+              severity="secondary"
+              [outlined]="true"
+              (click)="startBudgetEdit(budget)"
+            >
+              Edit budget
+            </button>
+            <button
+              pButton
+              type="button"
+              severity="danger"
+              [outlined]="true"
+              [disabled]="mutationBusy()"
+              (click)="archiveBudget(budget)"
+            >
+              Archive budget
+            </button>
+          } @else {
+            <button
+              pButton
+              type="button"
+              [disabled]="mutationBusy()"
+              (click)="restoreBudget(budget)"
+            >
+              Restore budget
+            </button>
+          }
+        </div>
       }
 
-      @if (budget.lines.length === 0) {
-        <p class="lines-empty">
-          No category targets yet. Add a line to begin allocating this plan.
-        </p>
-      } @else {
-        <ol class="budget-lines">
-          @for (line of budget.lines; track line.id; let index = $index) {
-            <li [class.archived]="line.status === 'archived'">
-              @if (editingLineId() === line.id) {
-                <form
-                  class="line-form inline"
-                  [formGroup]="lineForm"
-                  (ngSubmit)="saveLine(budget)"
-                  novalidate
-                >
-                  <div class="field">
-                    <label [for]="'edit-line-category-' + line.id">Category</label>
-                    <p-select
-                      [inputId]="'edit-line-category-' + line.id"
-                      formControlName="categoryId"
-                      [options]="lineCategorySelectOptions(budget, line.id)"
-                      optionLabel="label"
-                      optionValue="value"
-                    />
-                  </div>
-                  <div class="field">
-                    <label [for]="'edit-line-amount-' + line.id">Planned amount</label>
-                    <p-inputnumber
-                      [inputId]="'edit-line-amount-' + line.id"
-                      formControlName="plannedAmount"
-                      mode="decimal"
-                      [min]="0"
-                      [minFractionDigits]="0"
-                      [maxFractionDigits]="2"
-                      [useGrouping]="false"
-                    />
-                  </div>
-                  <footer>
-                    <button pButton type="button" [text]="true" (click)="cancelLineEdit()">
-                      Cancel
-                    </button>
-                    <button pButton type="submit" [disabled]="mutationBusy()">
-                      Save line
-                    </button>
-                  </footer>
-                  @if (formError(lineError())) {
-                    <p class="field-error form-error" role="alert">{{ formError(lineError()) }}</p>
-                  }
-                </form>
-              } @else {
-                <span class="drag-position">{{ index + 1 }}</span>
-                <div class="line-copy">
-                  <strong>{{ categoryName(line.categoryId) }}</strong>
-                  <span
-                    >{{ line.status
-                    }}{{
-                      line.archivedAt ? ' · archived ' + (line.archivedAt | date: 'mediumDate') : ''
-                    }}</span
-                  >
-                </div>
-                <strong class="line-amount">{{
-                  line.plannedAmount | currency: budget.currency
-                }}</strong>
-                @if (budget.status === 'active') {
-                  <div class="line-actions">
-                    <button
-                      pButton
-                      type="button"
-                      severity="secondary"
-                      [outlined]="true"
-                      [rounded]="true"
-                      [iconOnly]="true"
-                      [disabled]="index === 0 || mutationBusy()"
-                      [attr.aria-label]="'Move ' + categoryName(line.categoryId) + ' up'"
-                      (click)="moveLine(budget, index, -1)"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      pButton
-                      type="button"
-                      severity="secondary"
-                      [outlined]="true"
-                      [rounded]="true"
-                      [iconOnly]="true"
-                      [disabled]="index === budget.lines.length - 1 || mutationBusy()"
-                      [attr.aria-label]="'Move ' + categoryName(line.categoryId) + ' down'"
-                      (click)="moveLine(budget, index, 1)"
-                    >
-                      ↓
-                    </button>
-                    @if (line.status === 'active') {
-                      <button pButton type="button" [text]="true" (click)="startLineEdit(line)">
-                        Edit
-                      </button>
-                      <button
-                        pButton
-                        type="button"
-                        [text]="true"
-                        severity="danger"
-                        (click)="archiveLine(budget, line)"
-                      >
-                        Archive
-                      </button>
-                    } @else {
-                      <button
-                        pButton
-                        type="button"
-                        [text]="true"
-                        (click)="restoreLine(budget, line)"
-                      >
-                        Restore
-                      </button>
-                    }
-                  </div>
-                }
-              }
-            </li>
+      <section class="lines-section" aria-labelledby="budget-lines-heading">
+        <div class="section-heading">
+          <div>
+            <h3 id="budget-lines-heading">Category targets</h3>
+            <p>Ordering is retained for future planning and reporting views.</p>
+          </div>
+          @if (budget.status === 'active' && editingLineId() === null) {
+            <button pButton type="button" (click)="startAddLine()">Add line</button>
           }
-        </ol>
-      }
-      @if (lifecycleError()) {
-        <p class="field-error" role="alert">{{ lifecycleError()!.userMessage }}</p>
-      }
-    </section>
+        </div>
+
+        @if (editingLineId() === 'new') {
+          <form class="line-form" [formGroup]="lineForm" (ngSubmit)="saveLine(budget)" novalidate>
+            <div class="field">
+              <label for="new-line-category">Category</label>
+              <p-select
+                inputId="new-line-category"
+                formControlName="categoryId"
+                [options]="lineCategorySelectOptions(budget)"
+                optionLabel="label"
+                optionValue="value"
+                placeholder="Select an expense category"
+              />
+              @if (fieldError(lineError(), 'categoryId')) {
+                <p class="field-error">{{ fieldError(lineError(), 'categoryId') }}</p>
+              }
+            </div>
+            <div class="field">
+              <label for="new-line-amount">Planned amount</label>
+              <p-inputnumber
+                inputId="new-line-amount"
+                formControlName="plannedAmount"
+                mode="decimal"
+                [min]="0"
+                [minFractionDigits]="0"
+                [maxFractionDigits]="2"
+                [useGrouping]="false"
+              />
+              @if (fieldError(lineError(), 'plannedAmount')) {
+                <p class="field-error">{{ fieldError(lineError(), 'plannedAmount') }}</p>
+              }
+            </div>
+            <footer>
+              <button pButton type="button" [text]="true" (click)="cancelLineEdit()">Cancel</button>
+              <button pButton type="submit" [disabled]="mutationBusy()">
+                {{ lineSubmission.busy() ? 'Adding…' : 'Add line' }}
+              </button>
+            </footer>
+            @if (formError(lineError())) {
+              <p class="field-error form-error" role="alert">{{ formError(lineError()) }}</p>
+            }
+          </form>
+        }
+
+        @if (budget.lines.length === 0) {
+          <p class="lines-empty">
+            No category targets yet. Add a line to begin allocating this plan.
+          </p>
+        } @else {
+          <ol class="budget-lines">
+            @for (line of budget.lines; track line.id; let index = $index) {
+              <li [class.archived]="line.status === 'archived'">
+                @if (editingLineId() === line.id) {
+                  <form
+                    class="line-form inline"
+                    [formGroup]="lineForm"
+                    (ngSubmit)="saveLine(budget)"
+                    novalidate
+                  >
+                    <div class="field">
+                      <label [for]="'edit-line-category-' + line.id">Category</label>
+                      <p-select
+                        [inputId]="'edit-line-category-' + line.id"
+                        formControlName="categoryId"
+                        [options]="lineCategorySelectOptions(budget, line.id)"
+                        optionLabel="label"
+                        optionValue="value"
+                      />
+                    </div>
+                    <div class="field">
+                      <label [for]="'edit-line-amount-' + line.id">Planned amount</label>
+                      <p-inputnumber
+                        [inputId]="'edit-line-amount-' + line.id"
+                        formControlName="plannedAmount"
+                        mode="decimal"
+                        [min]="0"
+                        [minFractionDigits]="0"
+                        [maxFractionDigits]="2"
+                        [useGrouping]="false"
+                      />
+                    </div>
+                    <footer>
+                      <button pButton type="button" [text]="true" (click)="cancelLineEdit()">
+                        Cancel
+                      </button>
+                      <button pButton type="submit" [disabled]="mutationBusy()">Save line</button>
+                    </footer>
+                    @if (formError(lineError())) {
+                      <p class="field-error form-error" role="alert">
+                        {{ formError(lineError()) }}
+                      </p>
+                    }
+                  </form>
+                } @else {
+                  <span class="drag-position">{{ index + 1 }}</span>
+                  <div class="line-copy">
+                    <strong>{{ categoryName(line.categoryId) }}</strong>
+                    <span
+                      >{{ line.status
+                      }}{{
+                        line.archivedAt
+                          ? ' · archived ' + (line.archivedAt | date: 'mediumDate')
+                          : ''
+                      }}</span
+                    >
+                  </div>
+                  <strong class="line-amount">{{
+                    line.plannedAmount | currency: budget.currency
+                  }}</strong>
+                  @if (budget.status === 'active') {
+                    <div class="line-actions">
+                      <button
+                        pButton
+                        type="button"
+                        severity="secondary"
+                        [outlined]="true"
+                        [rounded]="true"
+                        [iconOnly]="true"
+                        [disabled]="index === 0 || mutationBusy()"
+                        [attr.aria-label]="'Move ' + categoryName(line.categoryId) + ' up'"
+                        (click)="moveLine(budget, index, -1)"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        pButton
+                        type="button"
+                        severity="secondary"
+                        [outlined]="true"
+                        [rounded]="true"
+                        [iconOnly]="true"
+                        [disabled]="index === budget.lines.length - 1 || mutationBusy()"
+                        [attr.aria-label]="'Move ' + categoryName(line.categoryId) + ' down'"
+                        (click)="moveLine(budget, index, 1)"
+                      >
+                        ↓
+                      </button>
+                      @if (line.status === 'active') {
+                        <button pButton type="button" [text]="true" (click)="startLineEdit(line)">
+                          Edit
+                        </button>
+                        <button
+                          pButton
+                          type="button"
+                          [text]="true"
+                          severity="danger"
+                          (click)="archiveLine(budget, line)"
+                        >
+                          Archive
+                        </button>
+                      } @else {
+                        <button
+                          pButton
+                          type="button"
+                          [text]="true"
+                          (click)="restoreLine(budget, line)"
+                        >
+                          Restore
+                        </button>
+                      }
+                    </div>
+                  }
+                }
+              </li>
+            }
+          </ol>
+        }
+        @if (lifecycleError()) {
+          <p class="field-error" role="alert">{{ lifecycleError()!.userMessage }}</p>
+        }
+      </section>
     }
   </section>
 }
