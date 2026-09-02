@@ -47,6 +47,8 @@ describe('AccountDetail', () => {
     expect(api['get']).toHaveBeenCalledWith(account.id);
     expect(api['listCurrencies']).toHaveBeenCalledTimes(1);
     expect(fixture.nativeElement.textContent).toContain('Everyday Checking');
+    expect(fixture.nativeElement.textContent).toContain('Asset · Checking');
+    expect(fixture.nativeElement.textContent).toContain('4.25% APY');
     expect(fixture.componentInstance.hasPendingChanges()).toBe(false);
     expect(
       fixture.nativeElement.querySelector('a[href="/accounts/account-1/history"]'),
@@ -108,6 +110,21 @@ describe('AccountDetail', () => {
     expect(fixture.componentInstance.hasPendingChanges()).toBe(true);
   });
 
+  it('renders REST interest validation beside the conditional rate control', () => {
+    const error = new AppHttpError('validation', 'Validation failed', 400, {
+      interestRateType: 'checking accounts support APY only',
+    });
+    api['update'].mockReturnValue(throwError(() => error));
+    const fixture = TestBed.createComponent(AccountDetail);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+    component.form.controls.interestRate.setValue(3.5);
+    component.save();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('checking accounts support APY only');
+  });
+
   it('confirms archive and returns to the accounts list', () => {
     vi.spyOn(globalThis, 'confirm').mockReturnValue(true);
     const fixture = TestBed.createComponent(AccountDetail);
@@ -115,6 +132,35 @@ describe('AccountDetail', () => {
     fixture.nativeElement.querySelector('.danger-button').click();
     expect(api['archive']).toHaveBeenCalledWith(account.id);
     expect(router.navigate).toHaveBeenCalledWith(['/accounts']);
+  });
+
+  it('clears incompatible interest terms when account classification changes', () => {
+    const fixture = TestBed.createComponent(AccountDetail);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+
+    expect(component.form.controls.interestRate.value).toBe(4.25);
+    component.form.controls.type.setValue('credit_card');
+    component.save();
+
+    expect(api['update']).toHaveBeenCalledWith(account.id, {
+      type: 'credit_card',
+      interestRate: null,
+      interestRateType: null,
+    });
+  });
+
+  it('maps an edited percentage rate with the account-specific rate type', () => {
+    const fixture = TestBed.createComponent(AccountDetail);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+    component.form.controls.interestRate.setValue(4.5);
+    component.save();
+
+    expect(api['update']).toHaveBeenCalledWith(account.id, {
+      interestRate: 4.5,
+      interestRateType: 'apy',
+    });
   });
 });
 
@@ -124,10 +170,13 @@ function accountFixture(): FinancialAccount {
     ownerId: 'owner-1',
     name: 'Everyday Checking',
     type: 'checking',
+    classification: 'asset',
     currency: 'USD',
     openingDate: '2026-08-22',
     openingBalance: 1250.75,
     currentBalance: 1250.75,
+    interestRate: 4.25,
+    interestRateType: 'apy',
     status: 'active',
     archivedAt: null,
     createdAt: '2026-08-22T18:30:00Z',

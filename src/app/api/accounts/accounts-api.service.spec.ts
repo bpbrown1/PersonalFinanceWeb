@@ -59,6 +59,8 @@ describe('AccountsApiService', () => {
       currency: 'USD',
       openingDate: '2026-08-22',
       openingBalance: 1250.75,
+      interestRate: 4.25,
+      interestRateType: 'apy',
     };
     const result = firstValueFrom(service.create(body));
     const request = http.expectOne('http://localhost:8080/api/v1/accounts');
@@ -125,10 +127,13 @@ function accountFixture(): FinancialAccount {
     ownerId: '00000000-0000-0000-0000-000000000001',
     name: 'Everyday Checking',
     type: 'checking',
+    classification: 'asset',
     currency: 'USD',
     openingDate: '2026-08-22',
     openingBalance: 1250.75,
     currentBalance: 1250.75,
+    interestRate: 4.25,
+    interestRateType: 'apy',
     status: 'active',
     archivedAt: null,
     createdAt: '2026-08-22T18:30:00Z',

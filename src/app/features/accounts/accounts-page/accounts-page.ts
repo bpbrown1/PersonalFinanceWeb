@@ -25,25 +25,51 @@ export class AccountsPage implements OnInit {
   protected readonly error = signal<AppHttpError | null>(null);
   protected readonly changingId = signal<string | null>(null);
 
-  ngOnInit(): void { this.load(); }
-  protected selectFilter(filter: AccountStatusFilter): void { if (filter !== this.filter()) { this.filter.set(filter); this.load(); } }
+  ngOnInit(): void {
+    this.load();
+  }
+  protected selectFilter(filter: AccountStatusFilter): void {
+    if (filter !== this.filter()) {
+      this.filter.set(filter);
+      this.load();
+    }
+  }
   protected load(): void {
-    this.loading.set(true); this.error.set(null);
-    this.api.list(this.filter()).pipe(finalize(() => this.loading.set(false))).subscribe({
-      next: (accounts) => this.accounts.set(accounts),
-      error: (error) => this.error.set(this.errors.present(error)),
-    });
+    this.loading.set(true);
+    this.error.set(null);
+    this.api
+      .list(this.filter())
+      .pipe(finalize(() => this.loading.set(false)))
+      .subscribe({
+        next: (accounts) => this.accounts.set(accounts),
+        error: (error) => this.error.set(this.errors.present(error)),
+      });
   }
   protected archive(account: FinancialAccount): void {
-    if (globalThis.confirm(`Archive ${account.name}? Its history will be retained.`)) this.changeStatus(account, 'archive');
+    if (globalThis.confirm(`Archive ${account.name}? Its history will be retained.`))
+      this.changeStatus(account, 'archive');
   }
-  protected restore(account: FinancialAccount): void { this.changeStatus(account, 'restore'); }
+  protected restore(account: FinancialAccount): void {
+    this.changeStatus(account, 'restore');
+  }
+  protected interestTerms(account: FinancialAccount): string | null {
+    if (account.interestRate === null || account.interestRateType === null) return null;
+    return `${account.interestRate.toLocaleString(undefined, { maximumFractionDigits: 6 })}% ${account.interestRateType.toUpperCase()}`;
+  }
   private changeStatus(account: FinancialAccount, action: 'archive' | 'restore'): void {
     if (this.changingId()) return;
     this.changingId.set(account.id);
-    this.api[action](account.id).pipe(finalize(() => this.changingId.set(null))).subscribe({
-      next: () => { this.notifications.show(`${account.name} was ${action === 'archive' ? 'archived' : 'restored'}.`, 'success'); this.load(); },
-      error: (error) => this.errors.present(error),
-    });
+    this.api[action](account.id)
+      .pipe(finalize(() => this.changingId.set(null)))
+      .subscribe({
+        next: () => {
+          this.notifications.show(
+            `${account.name} was ${action === 'archive' ? 'archived' : 'restored'}.`,
+            'success',
+          );
+          this.load();
+        },
+        error: (error) => this.errors.present(error),
+      });
   }
 }

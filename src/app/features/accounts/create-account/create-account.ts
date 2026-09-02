@@ -5,7 +5,11 @@ import { ButtonModule } from 'primeng/button';
 import { SelectModule } from 'primeng/select';
 import { finalize } from 'rxjs';
 import { AccountsApiService } from '../../../api/accounts/accounts-api.service';
-import { AccountType, CreateFinancialAccountRequest } from '../../../api/accounts/account.models';
+import {
+  AccountType,
+  CreateFinancialAccountRequest,
+  InterestRateType,
+} from '../../../api/accounts/account.models';
 import { ApiErrorPresenter } from '../../../api/errors/api-error-presenter.service';
 import { AppHttpError } from '../../../api/errors/app-http-error';
 import { SubmissionState } from '../../../api/request-state/submission-state';
@@ -55,10 +59,36 @@ export class CreateAccount implements OnInit, HasPendingChanges {
     openingBalance: this.formBuilder.control<number | null>(null, [
       Validators.pattern(/^-?\d{1,17}(\.\d{1,2})?$/),
     ]),
+    interestRate: this.formBuilder.control<number | null>(null, [
+      Validators.min(0),
+      Validators.max(999.999999),
+      Validators.pattern(/^\d{1,3}(\.\d{1,6})?$/),
+    ]),
   });
 
   ngOnInit(): void {
+    let previousRateType = this.interestRateTypeFor(this.form.controls.type.value);
+    this.form.controls.type.valueChanges.subscribe((type) => {
+      const nextRateType = this.interestRateTypeFor(type);
+      if (nextRateType !== previousRateType) this.form.controls.interestRate.setValue(null);
+      previousRateType = nextRateType;
+      this.serverFieldErrors.set({});
+    });
     this.loadCurrencies();
+  }
+
+  protected interestRateTypeFor(type: AccountType): InterestRateType | null {
+    if (type === 'checking' || type === 'savings') return 'apy';
+    if (type === 'credit_card' || type === 'loan') return 'apr';
+    return null;
+  }
+
+  protected interestRateLabel(type: AccountType): string {
+    return this.interestRateTypeFor(type)?.toUpperCase() ?? '';
+  }
+
+  protected classificationLabel(type: AccountType): string {
+    return type === 'credit_card' || type === 'loan' ? 'Liability' : 'Asset';
   }
 
   protected loadCurrencies(): void {
@@ -132,6 +162,12 @@ export class CreateAccount implements OnInit, HasPendingChanges {
       currency: value.currency,
       openingDate: value.openingDate!,
       ...(value.openingBalance === null ? {} : { openingBalance: value.openingBalance }),
+      ...(value.interestRate === null
+        ? {}
+        : {
+            interestRate: value.interestRate,
+            interestRateType: this.interestRateTypeFor(value.type)!,
+          }),
     };
   }
 

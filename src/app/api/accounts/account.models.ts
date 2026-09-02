@@ -1,14 +1,19 @@
 export type AccountType = 'checking' | 'savings' | 'cash' | 'credit_card' | 'loan';
+export type AccountClassification = 'asset' | 'liability';
+export type InterestRateType = 'apy' | 'apr';
 
 export interface FinancialAccount {
   id: string;
   ownerId: string;
   name: string;
   type: AccountType;
+  classification: AccountClassification;
   currency: string;
   openingDate: string;
   openingBalance: number;
   currentBalance: number;
+  interestRate: number | null;
+  interestRateType: InterestRateType | null;
   status: AccountStatus;
   archivedAt: string | null;
   createdAt: string;
@@ -24,6 +29,8 @@ export interface CreateFinancialAccountRequest {
   currency: string;
   openingDate: string;
   openingBalance?: number;
+  interestRate?: number;
+  interestRateType?: InterestRateType;
 }
 
 export interface UpdateFinancialAccountRequest {
@@ -32,6 +39,8 @@ export interface UpdateFinancialAccountRequest {
   currency?: string;
   openingDate?: string;
   openingBalance?: number;
+  interestRate?: number | null;
+  interestRateType?: InterestRateType | null;
 }
 
 export interface ApiErrorResponse {
