@@ -25,6 +25,8 @@ import { TransactionCategory } from '../../../api/categories/category.models';
 import { ApiErrorPresenter } from '../../../api/errors/api-error-presenter.service';
 import { AppHttpError } from '../../../api/errors/app-http-error';
 import { SubmissionState } from '../../../api/request-state/submission-state';
+import { RecurringExpenseOccurrence } from '../../../api/recurring-expenses/recurring-expense.models';
+import { RecurringExpensesApiService } from '../../../api/recurring-expenses/recurring-expenses-api.service';
 import {
   CashFlowTransactionType,
   FinancialTransaction,
@@ -72,6 +74,7 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
   private readonly transfersApi = inject(TransfersApiService);
   private readonly accountsApi = inject(AccountsApiService);
   private readonly categoriesApi = inject(CategoriesApiService);
+  private readonly recurringExpensesApi = inject(RecurringExpensesApiService);
   private readonly errors = inject(ApiErrorPresenter);
   private readonly notifications = inject(NotificationService);
   private readonly formBuilder = inject(FormBuilder);
@@ -79,6 +82,7 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly searchTextChanges = new Subject<string>();
+  private occurrenceRequestKey: string | null = null;
 
   protected readonly transactionPage = signal<TransactionPage>(emptyTransactionPage());
   protected readonly budgetProgressPath = signal<string | null>(null);
@@ -86,6 +90,9 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
   protected readonly transfers = signal<FinancialTransfer[]>([]);
   protected readonly accounts = signal<FinancialAccount[]>([]);
   protected readonly categories = signal<TransactionCategory[]>([]);
+  protected readonly recurringOccurrences = signal<RecurringExpenseOccurrence[]>([]);
+  protected readonly occurrencesLoading = signal(false);
+  protected readonly occurrencesError = signal<AppHttpError | null>(null);
   protected readonly filter = signal<TransactionStatus>('active');
   protected readonly searchAccountId = signal('');
   protected readonly searchCategoryId = signal('');
@@ -319,7 +326,9 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
       merchantPayee: transaction.merchantPayee ?? '',
       notes: transaction.notes ?? '',
       externalReference: transaction.externalReference ?? '',
+      recurringOccurrenceKey: transaction.recurringExpenseOccurrence?.occurrenceKey ?? '',
     });
+    if (transaction.type === 'expense') this.loadOccurrencesFor(this.editForm);
   }
 
   protected startTransferEdit(transfer: FinancialTransfer): void {
@@ -593,6 +602,12 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
         row.controls.categoryId.setValue('');
       }
     });
+    if (form.controls.type.value !== 'expense') {
+      form.controls.recurringOccurrenceKey.setValue('');
+      this.recurringOccurrences.set([]);
+    } else {
+      this.loadOccurrencesFor(form);
+    }
   }
 
   protected toggleSplits(which: 'create' | 'edit', enabled: boolean): void {
@@ -608,6 +623,7 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
     form.controls.splitEnabled.setValue(enabled);
     form.controls.categoryId.setValue('');
     form.controls.splits.clear();
+    form.controls.recurringOccurrenceKey.setValue('');
     if (enabled) {
       form.controls.splits.push(this.buildSplitRow());
       form.controls.splits.push(this.buildSplitRow());
@@ -677,6 +693,31 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
 
   protected transactionCurrency(form: ReturnType<TransactionsPage['buildForm']>): string {
     return this.account(form.controls.accountId.value)?.currency ?? 'USD';
+  }
+
+  protected onTransactionContextChanged(which: 'create' | 'edit'): void {
+    const form = which === 'create' ? this.createForm : this.editForm;
+    const selected = this.selectedOccurrence(form);
+    if (selected && !this.occurrenceCompatible(selected, form)) {
+      form.controls.recurringOccurrenceKey.setValue('');
+    }
+    this.loadOccurrencesFor(form);
+  }
+
+  protected recurringOccurrenceOptions(
+    form: ReturnType<TransactionsPage['buildForm']>,
+  ): Array<{ value: string; label: string }> {
+    const current = form.controls.recurringOccurrenceKey.value;
+    return this.recurringOccurrences()
+      .filter(
+        (occurrence) =>
+          this.occurrenceCompatible(occurrence, form) &&
+          (occurrence.status === 'outstanding' || occurrence.occurrenceKey === current),
+      )
+      .map((occurrence) => ({
+        value: occurrence.occurrenceKey,
+        label: this.occurrenceLabel(occurrence),
+      }));
   }
 
   protected categoryOptions(type: CashFlowTransactionType, currentId = ''): TransactionCategory[] {
@@ -790,6 +831,7 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
       merchantPayee: this.formBuilder.nonNullable.control('', Validators.maxLength(255)),
       notes: this.formBuilder.nonNullable.control('', Validators.maxLength(2000)),
       externalReference: this.formBuilder.nonNullable.control('', Validators.maxLength(255)),
+      recurringOccurrenceKey: this.formBuilder.nonNullable.control(''),
     });
   }
 
@@ -836,6 +878,7 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
       merchantPayee: value.merchantPayee.trim() || null,
       notes: value.notes.trim() || null,
       externalReference: value.externalReference.trim() || null,
+      recurringExpenseOccurrence: this.occurrenceSelection(form),
     };
   }
 
@@ -852,6 +895,7 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
       merchantPayee: '',
       notes: '',
       externalReference: '',
+      recurringOccurrenceKey: '',
     };
   }
 
@@ -955,6 +999,93 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
 
   private categoryMatches(category: TransactionCategory, type: CashFlowTransactionType): boolean {
     return category.applicability === 'both' || category.applicability === type;
+  }
+
+  private loadOccurrencesFor(form: ReturnType<TransactionsPage['buildForm']>): void {
+    if (form.controls.type.value !== 'expense' || form.controls.splitEnabled.value) return;
+    const date = form.controls.transactionDate.value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    const from = date.slice(0, 7) + '-01';
+    const to = this.lastDayOfMonth(date);
+    const requestKey = `${from}:${to}`;
+    this.occurrenceRequestKey = requestKey;
+    this.occurrencesLoading.set(true);
+    this.occurrencesError.set(null);
+    this.recurringExpensesApi
+      .occurrences(from, to)
+      .pipe(
+        finalize(() => {
+          if (this.occurrenceRequestKey === requestKey) this.occurrencesLoading.set(false);
+        }),
+      )
+      .subscribe({
+        next: (occurrences) => {
+          if (this.occurrenceRequestKey === requestKey) this.recurringOccurrences.set(occurrences);
+        },
+        error: (error) => {
+          if (this.occurrenceRequestKey !== requestKey) return;
+          this.recurringOccurrences.set([]);
+          this.occurrencesError.set(this.errors.present(error));
+        },
+      });
+  }
+
+  private selectedOccurrence(
+    form: ReturnType<TransactionsPage['buildForm']>,
+  ): RecurringExpenseOccurrence | undefined {
+    const key = form.controls.recurringOccurrenceKey.value;
+    return this.recurringOccurrences().find((occurrence) => occurrence.occurrenceKey === key);
+  }
+
+  private occurrenceSelection(
+    form: ReturnType<TransactionsPage['buildForm']>,
+  ): { recurringExpenseId: string; dueDate: string } | null {
+    const occurrence = this.selectedOccurrence(form);
+    if (occurrence) {
+      return {
+        recurringExpenseId: occurrence.recurringExpenseId,
+        dueDate: occurrence.dueDate,
+      };
+    }
+    const key = form.controls.recurringOccurrenceKey.value;
+    const separator = key.lastIndexOf(':');
+    if (separator < 1) return null;
+    return { recurringExpenseId: key.slice(0, separator), dueDate: key.slice(separator + 1) };
+  }
+
+  private occurrenceCompatible(
+    occurrence: RecurringExpenseOccurrence,
+    form: ReturnType<TransactionsPage['buildForm']>,
+  ): boolean {
+    const account = this.account(form.controls.accountId.value);
+    return (
+      form.controls.type.value === 'expense' &&
+      !form.controls.splitEnabled.value &&
+      !!account &&
+      !!form.controls.categoryId.value &&
+      occurrence.currency === account.currency &&
+      occurrence.categoryId === form.controls.categoryId.value &&
+      (occurrence.accountId === null || occurrence.accountId === account.id)
+    );
+  }
+
+  private occurrenceLabel(occurrence: RecurringExpenseOccurrence): string {
+    const due = new Intl.DateTimeFormat(undefined, {
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date(occurrence.dueDate + 'T00:00:00Z'));
+    const amount = new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: occurrence.currency,
+    }).format(occurrence.targetAmount);
+    return `${occurrence.name} · due ${due} · target ${amount}${occurrence.status === 'satisfied' ? ' · matched' : ''}`;
+  }
+
+  private lastDayOfMonth(date: string): string {
+    const [year, month] = date.split('-').map(Number);
+    const day = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
   private discardEditIfNeeded(): boolean {
     return (

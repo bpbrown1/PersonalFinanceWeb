@@ -74,6 +74,7 @@
         <select
           id="new-account"
           formControlName="accountId"
+          (change)="onTransactionContextChanged('create')"
           [attr.aria-invalid]="
             (createForm.controls.accountId.touched && createForm.controls.accountId.invalid) ||
             fieldError(createError(), 'accountId')
@@ -141,6 +142,7 @@
           id="new-date"
           type="date"
           formControlName="transactionDate"
+          (change)="onTransactionContextChanged('create')"
           [max]="today"
           [min]="minDate(createForm.controls.accountId.value)"
           [attr.aria-invalid]="
@@ -213,7 +215,11 @@
         @if (!createForm.controls.splitEnabled.value) {
           <div class="field allocation-category">
             <label for="new-category">Category <span>(optional)</span></label>
-            <select id="new-category" formControlName="categoryId">
+            <select
+              id="new-category"
+              formControlName="categoryId"
+              (change)="onTransactionContextChanged('create')"
+            >
               <option value="">Uncategorized</option>
               @for (
                 category of categoryOptions(createForm.controls.type.value);
@@ -322,6 +328,34 @@
           </div>
         }
       </fieldset>
+      @if (
+        createForm.controls.type.value === 'expense' && !createForm.controls.splitEnabled.value
+      ) {
+        <div class="field recurring-match-field">
+          <label for="new-recurring-occurrence">Recurring bill <span>(optional)</span></label>
+          <p-select
+            inputId="new-recurring-occurrence"
+            formControlName="recurringOccurrenceKey"
+            [options]="recurringOccurrenceOptions(createForm)"
+            optionLabel="label"
+            optionValue="value"
+            [showClear]="true"
+            [loading]="occurrencesLoading()"
+            placeholder="No recurring bill selected"
+          />
+          <small>
+            Select the bill this expense satisfies. Only compatible outstanding bills from the
+            transaction month are shown.
+          </small>
+          @if (occurrencesError()) {
+            <p class="field-error" role="alert">{{ occurrencesError()!.userMessage }}</p>
+          } @else if (fieldError(createError(), 'recurringExpenseOccurrence')) {
+            <p class="field-error" role="alert">
+              {{ fieldError(createError(), 'recurringExpenseOccurrence') }}
+            </p>
+          }
+        </div>
+      }
       <div class="field">
         <label for="new-merchant">Merchant / payee <span>(optional)</span></label
         ><input id="new-merchant" maxlength="255" formControlName="merchantPayee" />
@@ -1198,7 +1232,11 @@
             </div>
             <div class="field">
               <label [for]="'edit-account-' + transaction.id">Account</label>
-              <select [id]="'edit-account-' + transaction.id" formControlName="accountId">
+              <select
+                [id]="'edit-account-' + transaction.id"
+                formControlName="accountId"
+                (change)="onTransactionContextChanged('edit')"
+              >
                 <option value="">Select an account</option>
                 @for (account of accountOptions(transaction.accountId); track account.id) {
                   <option [value]="account.id">
@@ -1232,6 +1270,7 @@
                 [id]="'edit-date-' + transaction.id"
                 type="date"
                 formControlName="transactionDate"
+                (change)="onTransactionContextChanged('edit')"
                 [max]="today"
                 [min]="minDate(editForm.controls.accountId.value)"
               />
@@ -1275,7 +1314,11 @@
                   <label [for]="'edit-category-' + transaction.id"
                     >Category <span>(optional)</span></label
                   >
-                  <select [id]="'edit-category-' + transaction.id" formControlName="categoryId">
+                  <select
+                    [id]="'edit-category-' + transaction.id"
+                    formControlName="categoryId"
+                    (change)="onTransactionContextChanged('edit')"
+                  >
                     <option value="">Uncategorized</option>
                     @for (
                       category of categoryOptions(
@@ -1403,6 +1446,35 @@
                 </div>
               }
             </fieldset>
+            @if (
+              editForm.controls.type.value === 'expense' && !editForm.controls.splitEnabled.value
+            ) {
+              <div class="field recurring-match-field">
+                <label [for]="'edit-recurring-occurrence-' + transaction.id">
+                  Recurring bill <span>(optional)</span>
+                </label>
+                <p-select
+                  [inputId]="'edit-recurring-occurrence-' + transaction.id"
+                  formControlName="recurringOccurrenceKey"
+                  [options]="recurringOccurrenceOptions(editForm)"
+                  optionLabel="label"
+                  optionValue="value"
+                  [showClear]="true"
+                  [loading]="occurrencesLoading()"
+                  placeholder="No recurring bill selected"
+                />
+                <small
+                  >Changing this selection explicitly replaces or removes the bill match.</small
+                >
+                @if (occurrencesError()) {
+                  <p class="field-error" role="alert">{{ occurrencesError()!.userMessage }}</p>
+                } @else if (fieldError(editError(), 'recurringExpenseOccurrence')) {
+                  <p class="field-error" role="alert">
+                    {{ fieldError(editError(), 'recurringExpenseOccurrence') }}
+                  </p>
+                }
+              </div>
+            }
             <div class="field">
               <label [for]="'edit-merchant-' + transaction.id"
                 >Merchant / payee <span>(optional)</span></label
@@ -1485,6 +1557,15 @@
               <div>
                 <dt>Reference</dt>
                 <dd>{{ transaction.externalReference }}</dd>
+              </div>
+            }
+            @if (transaction.recurringExpenseOccurrence) {
+              <div>
+                <dt>Recurring bill</dt>
+                <dd>
+                  Matched to the bill due
+                  {{ transaction.recurringExpenseOccurrence.dueDate | date: 'mediumDate' }}
+                </dd>
               </div>
             }
             @if (transaction.notes) {

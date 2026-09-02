@@ -8,6 +8,7 @@ import { CategoriesApiService } from '../../../api/categories/categories-api.ser
 import { TransactionCategory } from '../../../api/categories/category.models';
 import { ApiErrorPresenter } from '../../../api/errors/api-error-presenter.service';
 import { AppHttpError } from '../../../api/errors/app-http-error';
+import { RecurringExpensesApiService } from '../../../api/recurring-expenses/recurring-expenses-api.service';
 import {
   FinancialTransaction,
   TransactionPage,
@@ -31,6 +32,7 @@ describe('TransactionsPage', () => {
     ReturnType<typeof vi.fn>
   >;
   let categoriesApi: { list: ReturnType<typeof vi.fn> };
+  let recurringExpensesApi: { occurrences: ReturnType<typeof vi.fn> };
   let notifications: { show: ReturnType<typeof vi.fn> };
   let presenter: { present: ReturnType<typeof vi.fn> };
 
@@ -66,6 +68,7 @@ describe('TransactionsPage', () => {
         ]),
       ),
     };
+    recurringExpensesApi = { occurrences: vi.fn(() => of([])) };
     notifications = { show: vi.fn() };
     presenter = { present: vi.fn((error) => error) };
     await TestBed.configureTestingModule({
@@ -76,6 +79,7 @@ describe('TransactionsPage', () => {
         { provide: TransfersApiService, useValue: transfersApi },
         { provide: AccountsApiService, useValue: accountsApi },
         { provide: CategoriesApiService, useValue: categoriesApi },
+        { provide: RecurringExpensesApiService, useValue: recurringExpensesApi },
         { provide: NotificationService, useValue: notifications },
         { provide: ApiErrorPresenter, useValue: presenter },
         provideRouter([{ path: 'transactions', component: TransactionsPage }]),
@@ -149,6 +153,7 @@ describe('TransactionsPage', () => {
       merchantPayee: '  Cafe ',
       notes: ' ',
       externalReference: '',
+      recurringOccurrenceKey: '',
     });
     component.create();
     expect(transactionsApi.create).toHaveBeenCalledWith({
@@ -162,10 +167,60 @@ describe('TransactionsPage', () => {
       merchantPayee: 'Cafe',
       notes: null,
       externalReference: null,
+      recurringExpenseOccurrence: null,
     });
     expect(transactionsApi.search).toHaveBeenCalledTimes(2);
     expect(accountsApi.list).toHaveBeenCalledTimes(2);
     expect(transactionsApi.summarize).toHaveBeenCalledTimes(2);
+  });
+
+  it('explicitly matches a compatible outstanding bill when recording an expense', () => {
+    recurringExpensesApi.occurrences.mockReturnValue(
+      of([
+        {
+          occurrenceKey: 'bill-1:2026-09-15',
+          recurringExpenseId: 'bill-1',
+          name: 'Water bill',
+          dueDate: '2026-09-15',
+          amount: 80,
+          targetAmount: 80,
+          actualAmount: null,
+          variance: null,
+          status: 'outstanding',
+          linkedTransaction: null,
+          currency: 'USD',
+          categoryId: 'category-1',
+          accountId: 'account-1',
+        },
+      ]),
+    );
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+    component.selectCreateMode('expense');
+    component.createForm.patchValue({
+      accountId: 'account-1',
+      amount: 72,
+      transactionDate: '2026-09-15',
+      description: 'Water utility',
+      categoryId: 'category-1',
+      recurringOccurrenceKey: 'bill-1:2026-09-15',
+    });
+    component.onTransactionContextChanged('create');
+    fixture.detectChanges();
+
+    expect(recurringExpensesApi.occurrences).toHaveBeenLastCalledWith('2026-09-01', '2026-09-30');
+    expect(fixture.nativeElement.textContent).toContain('Water bill');
+    component.create();
+    expect(transactionsApi.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amount: 72,
+        recurringExpenseOccurrence: {
+          recurringExpenseId: 'bill-1',
+          dueDate: '2026-09-15',
+        },
+      }),
+    );
   });
 
   it('creates an exact split allocation without a parent category', () => {
@@ -854,6 +909,7 @@ describe('TransactionsPage', () => {
       merchantPayee: '',
       notes: '',
       externalReference: '',
+      recurringOccurrenceKey: '',
     });
     component.create();
     fixture.detectChanges();
@@ -893,6 +949,7 @@ function transactionFixture(overrides: Partial<FinancialTransaction> = {}): Fina
     merchantPayee: 'Cafe',
     notes: null,
     externalReference: null,
+    recurringExpenseOccurrence: null,
     status: 'active',
     deletedAt: null,
     createdAt: '2026-08-23T12:00:00Z',

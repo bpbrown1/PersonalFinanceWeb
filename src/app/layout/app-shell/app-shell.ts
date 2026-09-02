@@ -23,6 +23,7 @@ export class AppShell {
     { label: 'Accounts', path: '/accounts', icon: '▤' },
     { label: 'Transactions', path: '/transactions', icon: '↔' },
     { label: 'Budgets', path: '/budgets', icon: '◎' },
+    { label: 'Recurring bills', path: '/recurring-bills', icon: '◷' },
     { label: 'Categories', path: '/categories', icon: '◫' },
     { label: 'Imports', path: '/imports', icon: '⇧' },
     { label: 'Reports', path: '/reports', icon: '▥' },

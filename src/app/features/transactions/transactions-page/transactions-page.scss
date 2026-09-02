@@ -15,6 +15,13 @@
 .edit-form .notes {
   grid-column: span 3;
 }
+.recurring-match-field {
+  grid-column: 1 / -1;
+}
+.recurring-match-field small {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
 .allocation-fieldset {
   grid-column: 1 / -1;
   min-width: 0;

@@ -1,0 +1,322 @@
+:host {
+  display: block;
+  width: min(100%, 88rem);
+  margin: 0 auto;
+}
+.page-header,
+.workspace-heading,
+.schedule-card > header,
+.schedule-card > footer,
+.editor footer,
+.preview > div,
+.preview li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.page-header {
+  align-items: end;
+  margin-bottom: 1rem;
+}
+.page-header h1 {
+  margin: 0.2rem 0 0.35rem;
+  font-size: clamp(2.15rem, 5vw, 3.15rem);
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+.page-header p:last-child,
+.workspace-heading p,
+.editor-intro > p:last-child,
+.schedule-card header p,
+.preview p,
+.preview small,
+.field small {
+  color: var(--color-muted);
+}
+.eyebrow {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.forecast-note {
+  display: flex;
+  gap: 0.8rem;
+  margin-bottom: 1.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 35%, var(--color-border));
+  border-radius: 0.85rem;
+  background: var(--color-primary-soft);
+}
+.forecast-note > span {
+  color: var(--color-primary);
+  font-size: 1.35rem;
+}
+.forecast-note p {
+  margin: 0.15rem 0 0;
+  color: var(--color-muted);
+  font-size: 0.82rem;
+}
+.editor {
+  display: grid;
+  grid-template-columns: minmax(13rem, 0.42fr) minmax(0, 1.58fr);
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-raised);
+}
+.editor h2,
+.workspace h2,
+.schedule-card h3,
+.preview h4 {
+  margin: 0.25rem 0;
+}
+.editor-intro p:last-child {
+  margin-top: 0.65rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+.name-field {
+  grid-column: span 2;
+}
+.field {
+  display: grid;
+  align-content: start;
+  gap: 0.4rem;
+  min-width: 0;
+}
+label {
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+label span {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+}
+.field > input,
+.field > p-inputnumber,
+.field > p-select {
+  width: 100%;
+  min-width: 0;
+}
+.field small {
+  font-size: 0.7rem;
+}
+.cadence-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.cadence-shortcuts button,
+.filters button {
+  padding: 0.42rem 0.65rem;
+  border: 0;
+  border-radius: 0.55rem;
+  color: var(--color-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.cadence-shortcuts button {
+  border: 1px solid var(--color-border);
+}
+.cadence-shortcuts button.selected,
+.filters button.selected {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+.editor footer {
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+.form-error {
+  margin-right: auto;
+}
+.workspace-heading {
+  margin-bottom: 0.9rem;
+}
+.workspace-heading p {
+  margin: 0;
+  font-size: 0.82rem;
+}
+.filters {
+  display: flex;
+  gap: 0.3rem;
+  padding: 0.3rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.8rem;
+  background: var(--color-surface);
+}
+.filters button {
+  padding: 0.55rem 1rem;
+  font-size: 0.82rem;
+}
+.schedule-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 25rem), 1fr));
+  gap: 0.9rem;
+}
+.schedule-card {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.95rem;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-raised);
+}
+.schedule-card.archived {
+  border-style: dashed;
+}
+.schedule-card > header {
+  align-items: start;
+}
+.schedule-card > header > strong {
+  color: var(--color-primary);
+  font-size: 1.2rem;
+  white-space: nowrap;
+}
+.schedule-card header p {
+  margin: 0;
+  font-size: 0.76rem;
+}
+.status-pill {
+  display: inline-flex;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: capitalize;
+}
+.archived .status-pill {
+  color: var(--color-muted);
+  background: var(--color-canvas);
+}
+dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+}
+dl div {
+  min-width: 0;
+}
+dt {
+  color: var(--color-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+dd {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.preview {
+  padding: 0.8rem;
+  border-radius: 0.75rem;
+  background: var(--color-canvas);
+}
+.preview h4 {
+  font-size: 0.86rem;
+}
+.preview > div span {
+  color: var(--color-primary);
+  font-size: 0.65rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.preview ol {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.65rem 0;
+  padding: 0;
+  list-style: none;
+}
+.preview li {
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.78rem;
+}
+.preview p,
+.preview small {
+  margin: 0.55rem 0 0;
+  font-size: 0.72rem;
+}
+.schedule-card > footer {
+  justify-content: flex-end;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
+.field-error {
+  margin: 0;
+  color: var(--color-negative);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.lifecycle-error {
+  margin-bottom: 0.8rem;
+  padding: 0.75rem;
+  border-radius: 0.7rem;
+  background: var(--color-negative-soft);
+}
+.sr-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+@media (max-width: 64rem) {
+  .editor {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 48rem) {
+  .page-header,
+  .workspace-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .page-header button {
+    width: 100%;
+  }
+  .filters {
+    width: max-content;
+  }
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .name-field {
+    grid-column: auto;
+  }
+}
+@media (max-width: 30rem) {
+  .schedule-card > header {
+    display: grid;
+  }
+  dl {
+    grid-template-columns: 1fr;
+  }
+  .editor footer {
+    flex-wrap: wrap;
+  }
+  .form-error {
+    flex-basis: 100%;
+  }
+}

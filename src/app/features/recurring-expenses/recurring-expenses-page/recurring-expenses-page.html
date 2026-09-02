@@ -1,0 +1,317 @@
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Fixed commitments</p>
+    <h1>Recurring bills</h1>
+    <p>Schedule bills and subscriptions once, then see when they affect each monthly plan.</p>
+  </div>
+  <button pButton type="button" (click)="openCreate()">
+    <span aria-hidden="true">＋</span>
+    Add recurring bill
+  </button>
+</header>
+
+<aside class="forecast-note" role="note">
+  <span aria-hidden="true">◷</span>
+  <div>
+    <strong>Scheduled amounts are forecasts.</strong>
+    <p>
+      They help plan future commitments but never create a transaction or prove a bill was paid.
+    </p>
+  </div>
+</aside>
+
+@if (editingId() !== null) {
+  <section class="editor" aria-labelledby="recurring-editor-heading">
+    <div class="editor-intro">
+      <p class="eyebrow">{{ editingId() === 'new' ? 'New schedule' : 'Edit schedule' }}</p>
+      <h2 id="recurring-editor-heading">
+        {{ editingId() === 'new' ? 'Add a recurring bill' : 'Update recurring bill' }}
+      </h2>
+      <p>
+        The first due date anchors the schedule. If that day is unavailable later, REST uses the
+        target month's final day without drifting the cadence.
+      </p>
+    </div>
+    <form [formGroup]="form" (ngSubmit)="save()" novalidate>
+      <div class="form-grid">
+        <div class="field name-field">
+          <label for="recurring-name">Name or payee <span>(required)</span></label>
+          <input pInputText id="recurring-name" formControlName="name" maxlength="100" />
+          @if (form.controls.name.touched && form.controls.name.invalid) {
+            <p class="field-error">Enter a name of 100 characters or fewer.</p>
+          } @else if (fieldError('name')) {
+            <p class="field-error" role="alert">{{ fieldError('name') }}</p>
+          }
+        </div>
+        <div class="field">
+          <label for="recurring-amount">Amount <span>(required)</span></label>
+          <p-inputnumber
+            inputId="recurring-amount"
+            formControlName="amount"
+            mode="decimal"
+            [min]="0"
+            [minFractionDigits]="2"
+            [maxFractionDigits]="2"
+            [useGrouping]="true"
+          />
+          @if (form.controls.amount.touched && form.controls.amount.invalid) {
+            <p class="field-error">Enter a nonnegative amount with no more than two decimals.</p>
+          } @else if (fieldError('amount')) {
+            <p class="field-error" role="alert">{{ fieldError('amount') }}</p>
+          }
+        </div>
+        <div class="field">
+          <label for="recurring-currency">Currency <span>(required)</span></label>
+          <p-select
+            inputId="recurring-currency"
+            formControlName="currency"
+            [options]="currencyOptions()"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Select currency"
+            (onChange)="onCurrencyChange()"
+          />
+          @if (currencies().length === 0) {
+            <p class="field-error">No supported currencies are available.</p>
+          } @else if (fieldError('currency')) {
+            <p class="field-error" role="alert">{{ fieldError('currency') }}</p>
+          }
+        </div>
+        <div class="field">
+          <label for="recurring-category">Expense category <span>(required)</span></label>
+          <p-select
+            inputId="recurring-category"
+            formControlName="categoryId"
+            [options]="expenseCategoryOptions()"
+            optionLabel="label"
+            optionValue="value"
+            [filter]="true"
+            filterBy="label"
+            placeholder="Select category"
+          />
+          @if (form.controls.categoryId.touched && form.controls.categoryId.invalid) {
+            <p class="field-error">Choose an expense-compatible category.</p>
+          } @else if (fieldError('categoryId')) {
+            <p class="field-error" role="alert">{{ fieldError('categoryId') }}</p>
+          }
+        </div>
+        <div class="field">
+          <label for="recurring-account">Account <span>(optional)</span></label>
+          <p-select
+            inputId="recurring-account"
+            formControlName="accountId"
+            [options]="accountOptions()"
+            optionLabel="label"
+            optionValue="value"
+          />
+          <small>Only active accounts matching the selected currency appear.</small>
+          @if (fieldError('accountId')) {
+            <p class="field-error" role="alert">{{ fieldError('accountId') }}</p>
+          }
+        </div>
+        <div class="field">
+          <label for="recurring-interval">Repeat every <span>(required)</span></label>
+          <p-inputnumber
+            inputId="recurring-interval"
+            formControlName="intervalMonths"
+            suffix=" months"
+            [min]="1"
+            [maxFractionDigits]="0"
+            [useGrouping]="false"
+          />
+          <div class="cadence-shortcuts" aria-label="Common recurrence intervals">
+            @for (option of recurrenceOptions; track option.value) {
+              <button
+                type="button"
+                [class.selected]="form.controls.intervalMonths.value === option.value"
+                [attr.aria-pressed]="form.controls.intervalMonths.value === option.value"
+                (click)="
+                  form.controls.intervalMonths.setValue(option.value);
+                  form.controls.intervalMonths.markAsDirty()
+                "
+              >
+                {{ option.label }}
+              </button>
+            }
+          </div>
+          @if (form.controls.intervalMonths.touched && form.controls.intervalMonths.invalid) {
+            <p class="field-error">Enter a whole number of one month or more.</p>
+          } @else if (fieldError('intervalMonths')) {
+            <p class="field-error" role="alert">{{ fieldError('intervalMonths') }}</p>
+          }
+        </div>
+        <div class="field">
+          <label for="recurring-anchor">First due date <span>(required)</span></label>
+          <input pInputText id="recurring-anchor" type="date" formControlName="anchorDate" />
+          @if (form.controls.anchorDate.touched && form.controls.anchorDate.invalid) {
+            <p class="field-error">Choose the first due date.</p>
+          } @else if (fieldError('anchorDate')) {
+            <p class="field-error" role="alert">{{ fieldError('anchorDate') }}</p>
+          }
+        </div>
+        <div class="field">
+          <label for="recurring-end">End date <span>(optional)</span></label>
+          <input pInputText id="recurring-end" type="date" formControlName="endDate" />
+          @if (endDateBeforeAnchor()) {
+            <p class="field-error">The end date cannot be before the first due date.</p>
+          } @else if (fieldError('endDate')) {
+            <p class="field-error" role="alert">{{ fieldError('endDate') }}</p>
+          }
+        </div>
+      </div>
+      <footer>
+        @if (formError()) {
+          <p class="field-error form-error" role="alert">{{ formError() }}</p>
+        }
+        <button pButton type="button" [text]="true" (click)="cancelEdit()">Cancel</button>
+        <button pButton type="submit" [disabled]="submission.busy() || changing()">
+          {{
+            submission.busy() ? 'Saving…' : editingId() === 'new' ? 'Schedule bill' : 'Save changes'
+          }}
+        </button>
+      </footer>
+    </form>
+  </section>
+}
+
+<section class="workspace" aria-labelledby="recurring-list-heading">
+  <div class="workspace-heading">
+    <div>
+      <h2 id="recurring-list-heading">Your schedules</h2>
+      <p>Review upcoming due dates or maintain archived definitions.</p>
+    </div>
+    <nav class="filters" aria-label="Recurring bill status">
+      <button
+        type="button"
+        [class.selected]="filter() === 'active'"
+        [attr.aria-pressed]="filter() === 'active'"
+        (click)="selectFilter('active')"
+      >
+        Active
+      </button>
+      <button
+        type="button"
+        [class.selected]="filter() === 'archived'"
+        [attr.aria-pressed]="filter() === 'archived'"
+        (click)="selectFilter('archived')"
+      >
+        Archived
+      </button>
+    </nav>
+  </div>
+
+  @if (lifecycleError()) {
+    <p class="field-error lifecycle-error" role="alert">{{ lifecycleError()!.userMessage }}</p>
+  }
+  @if (loading()) {
+    <app-page-state
+      kind="loading"
+      title="Loading recurring bills"
+      message="Retrieving schedules, categories, accounts, and currencies."
+    />
+  } @else if (loadError()) {
+    <app-page-state
+      kind="error"
+      title="Recurring bills unavailable"
+      [message]="loadError()!.userMessage"
+      actionLabel="Retry"
+      (action)="load()"
+    />
+  } @else if (definitions().length === 0) {
+    <app-page-state
+      kind="empty"
+      [title]="filter() === 'active' ? 'No recurring bills yet' : 'No archived recurring bills'"
+      [message]="
+        filter() === 'active'
+          ? 'Add a bill or subscription to begin forecasting fixed commitments.'
+          : 'Archived schedules remain available here.'
+      "
+    />
+  } @else {
+    <div class="schedule-grid" [attr.aria-label]="filter() + ' recurring bills'">
+      @for (definition of definitions(); track definition.id) {
+        <article class="schedule-card" [class.archived]="definition.status === 'archived'">
+          <header>
+            <div>
+              <span class="status-pill">{{ definition.status }}</span>
+              <h3>{{ definition.name }}</h3>
+              <p>
+                {{ categoryName(definition.categoryId) }} · {{ accountName(definition.accountId) }}
+              </p>
+            </div>
+            <strong>{{ definition.amount | currency: definition.currency }}</strong>
+          </header>
+          <dl>
+            <div>
+              <dt>Cadence</dt>
+              <dd>{{ cadenceLabel(definition.intervalMonths) }}</dd>
+            </div>
+            <div>
+              <dt>First due</dt>
+              <dd>{{ definition.anchorDate | date: 'mediumDate' }}</dd>
+            </div>
+            <div>
+              <dt>Ends</dt>
+              <dd>
+                {{ definition.endDate ? (definition.endDate | date: 'mediumDate') : 'No end date' }}
+              </dd>
+            </div>
+          </dl>
+          @if (definition.status === 'active') {
+            <section class="preview" [attr.aria-labelledby]="'preview-' + definition.id">
+              <div>
+                <h4 [id]="'preview-' + definition.id">Upcoming due dates</h4>
+                <span>Server projected</span>
+              </div>
+              @if (previewLoading()) {
+                <p>Loading forecast…</p>
+              } @else if (previewError()) {
+                <p class="field-error">Forecast unavailable. Retry the page to try again.</p>
+              } @else if (previewFor(definition).length === 0) {
+                <p>No occurrences fall within the next 12 months.</p>
+              } @else {
+                <ol>
+                  @for (occurrence of previewFor(definition); track occurrence.occurrenceKey) {
+                    <li>
+                      <span>{{ occurrence.dueDate | date: 'mediumDate' }}</span
+                      ><strong>{{ occurrence.amount | currency: occurrence.currency }}</strong>
+                    </li>
+                  }
+                </ol>
+              }
+              <small
+                >Month-end dates clamp to the final valid day without shifting later months.</small
+              >
+            </section>
+          }
+          <footer>
+            @if (definition.status === 'active') {
+              <button pButton type="button" [text]="true" (click)="startEdit(definition)">
+                Edit
+              </button>
+              <button
+                pButton
+                type="button"
+                severity="danger"
+                [outlined]="true"
+                [disabled]="changing()"
+                (click)="archive(definition)"
+              >
+                Archive
+              </button>
+            } @else {
+              <button pButton type="button" [disabled]="changing()" (click)="restore(definition)">
+                Restore
+              </button>
+            }
+          </footer>
+        </article>
+      }
+    </div>
+  }
+</section>
+
+<p class="sr-status" aria-live="polite">
+  {{ definitions().length }} {{ filter() }} recurring
+  {{ definitions().length === 1 ? 'bill' : 'bills' }} loaded.
+</p>
