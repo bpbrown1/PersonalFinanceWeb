@@ -164,6 +164,34 @@ export interface UnbudgetedCommitment {
   scheduledCommitments: BudgetScheduledCommitment[];
 }
 
+export type BudgetAllocationState = 'allocated' | 'covered_by_ancestor' | 'unbudgeted';
+
+export interface BudgetCategoryPathSegment {
+  categoryId: string;
+  name: string;
+}
+
+export interface BudgetCategoryProgress {
+  categoryId: string;
+  categoryName: string;
+  path: BudgetCategoryPathSegment[];
+  categoryStatus: BudgetStatus;
+  allocationState: BudgetAllocationState;
+  lineId: string | null;
+  directPlanned: number;
+  directScheduledTarget: number;
+  directTarget: number;
+  rollupTarget: number;
+  directFlexibleActual: number;
+  directBillActual: number;
+  directActual: number;
+  rollupActual: number;
+  remaining: number;
+  percentageUsed: number | null;
+  descendantAllocationCount: number;
+  children: BudgetCategoryProgress[];
+}
+
 export interface BudgetProgress {
   budgetId: string;
   ownerId: string;
@@ -194,6 +222,7 @@ export interface BudgetProgress {
   components: BudgetProgressComponent[];
   unbudgeted: UnbudgetedProgress[];
   unbudgetedCommitments: UnbudgetedCommitment[];
+  hierarchy: BudgetCategoryProgress[];
   drillDown: BudgetProgressDrillDown;
 }
 

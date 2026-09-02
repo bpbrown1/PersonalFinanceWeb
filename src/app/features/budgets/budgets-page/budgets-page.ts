@@ -1,6 +1,6 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
-import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { InputNumberModule } from 'primeng/inputnumber';
@@ -12,6 +12,7 @@ import { FinancialAccount } from '../../../api/accounts/account.models';
 import { AccountsApiService } from '../../../api/accounts/accounts-api.service';
 import {
   Budget,
+  BudgetCategoryProgress,
   BudgetLine,
   BudgetLineProgress,
   BudgetProgress,
@@ -31,15 +32,11 @@ import { NotificationService } from '../../../core/notification.service';
 import { PageState } from '../../../shared/page-state/page-state';
 
 type ProgressStatus = 'no_plan' | 'on_track' | 'approaching' | 'at_limit' | 'over_budget';
-type ProgressStatusFilter = ProgressStatus | 'all';
-type ProgressSort =
-  'position' | 'category' | 'planned' | 'actual' | 'remaining' | 'percentage' | 'status';
 
 @Component({
   selector: 'app-budgets-page',
   imports: [
     ReactiveFormsModule,
-    FormsModule,
     CurrencyPipe,
     DatePipe,
     ButtonModule,
@@ -85,29 +82,7 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
   protected readonly editingBudget = signal(false);
   protected readonly editingLineId = signal<string | null>(null);
   protected readonly changing = signal(false);
-  protected readonly progressStatusFilter = signal<ProgressStatusFilter>('all');
-  protected readonly progressSort = signal<ProgressSort>('position');
-  protected readonly progressSortDirection = signal<'asc' | 'desc'>('asc');
-  protected readonly progressStatusOptions: Array<{
-    label: string;
-    value: ProgressStatusFilter;
-  }> = [
-    { label: 'All statuses', value: 'all' },
-    { label: 'On track', value: 'on_track' },
-    { label: 'Approaching limit', value: 'approaching' },
-    { label: 'At limit', value: 'at_limit' },
-    { label: 'Over budget', value: 'over_budget' },
-    { label: 'No plan', value: 'no_plan' },
-  ];
-  protected readonly progressSortOptions: Array<{ label: string; value: ProgressSort }> = [
-    { label: 'Plan order', value: 'position' },
-    { label: 'Category', value: 'category' },
-    { label: 'Planned', value: 'planned' },
-    { label: 'Actual', value: 'actual' },
-    { label: 'Remaining', value: 'remaining' },
-    { label: 'Percentage used', value: 'percentage' },
-    { label: 'Status', value: 'status' },
-  ];
+  protected readonly expandedCategoryIds = signal<ReadonlySet<string>>(new Set());
   protected readonly createSubmission = new SubmissionState();
   protected readonly editSubmission = new SubmissionState();
   protected readonly lineSubmission = new SubmissionState();
@@ -125,13 +100,12 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
       (category) => category.status === 'active' && category.applicability !== 'income',
     ),
   );
-  protected readonly visibleProgressLines = computed(() => {
-    const filter = this.progressStatusFilter();
-    const direction = this.progressSortDirection() === 'asc' ? 1 : -1;
-    return [...(this.progress()?.lines ?? [])]
-      .filter((line) => filter === 'all' || this.progressStatus(line) === filter)
-      .sort((left, right) => direction * this.compareProgressLines(left, right));
-  });
+  protected readonly budgetCategoryHierarchy = computed(() =>
+    this.pruneBudgetHierarchy(this.progress()?.hierarchy ?? []),
+  );
+  protected readonly visibleCategoryProgress = computed(() =>
+    this.flattenCategoryProgress(this.budgetCategoryHierarchy(), this.expandedCategoryIds()),
+  );
   protected readonly createForm = this.buildCreateForm();
   protected readonly editForm = this.formBuilder.group({
     name: this.formBuilder.nonNullable.control('', [
@@ -599,6 +573,28 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
     return this.categories().find((category) => category.id === id)?.name ?? 'Unavailable category';
   }
 
+  protected categoryPathLabel(id: string): string {
+    const categories = new Map(this.categories().map((category) => [category.id, category]));
+    const path: string[] = [];
+    const visited = new Set<string>();
+    let category = categories.get(id);
+    while (category && !visited.has(category.id)) {
+      visited.add(category.id);
+      path.unshift(category.name);
+      category = category.parentId ? categories.get(category.parentId) : undefined;
+    }
+    return path.length > 0 ? path.join(' › ') : 'Unavailable category';
+  }
+
+  protected allocationImpactLabel(categoryId: string): string | null {
+    if (!categoryId) return null;
+    const path = this.categoryPathLabel(categoryId).split(' › ');
+    if (path.length === 1) {
+      return 'This general allocation becomes the root total and covers spending in unallocated descendants.';
+    }
+    return `This general allocation is added to ${path.slice(0, -1).join(' › ')} and increases each ancestor total.`;
+  }
+
   protected accountName(id: string | null): string {
     if (!id) return 'No linked account';
     return this.accounts().find((account) => account.id === id)?.name ?? 'Unavailable account';
@@ -634,7 +630,10 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
       )
       .subscribe({
         next: (progress) => {
-          if (this.progressRequestBudgetId === budgetId) this.progress.set(progress);
+          if (this.progressRequestBudgetId === budgetId) {
+            this.progress.set(progress);
+            this.expandedCategoryIds.set(new Set());
+          }
         },
         error: (error) => {
           if (this.progressRequestBudgetId !== budgetId) return;
@@ -698,6 +697,71 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
     return component.status === 'satisfied' ? 'Satisfied' : 'Outstanding';
   }
 
+  protected toggleCategory(categoryId: string): void {
+    this.expandedCategoryIds.update((current) => {
+      const next = new Set(current);
+      if (next.has(categoryId)) next.delete(categoryId);
+      else next.add(categoryId);
+      return next;
+    });
+  }
+
+  protected expandAllCategories(): void {
+    const expandable = new Set<string>();
+    const visit = (nodes: BudgetCategoryProgress[]) => {
+      for (const node of nodes) {
+        if (node.children.length > 0) expandable.add(node.categoryId);
+        visit(node.children);
+      }
+    };
+    visit(this.budgetCategoryHierarchy());
+    this.expandedCategoryIds.set(expandable);
+  }
+
+  protected collapseAllCategories(): void {
+    this.expandedCategoryIds.set(new Set());
+  }
+
+  protected allocationStateLabel(node: BudgetCategoryProgress): string {
+    return {
+      allocated: 'Allocated',
+      covered_by_ancestor: 'Covered by ancestor',
+      unbudgeted: 'Unbudgeted',
+    }[node.allocationState];
+  }
+
+  protected hierarchyPathLabel(node: BudgetCategoryProgress): string {
+    return node.path.map((segment) => segment.name).join(' › ');
+  }
+
+  protected hierarchyStatus(node: BudgetCategoryProgress): ProgressStatus {
+    if (node.rollupTarget === 0 || node.percentageUsed === null) return 'no_plan';
+    if (node.percentageUsed > 100) return 'over_budget';
+    if (node.percentageUsed === 100) return 'at_limit';
+    if (node.percentageUsed >= 80) return 'approaching';
+    return 'on_track';
+  }
+
+  protected hierarchyStatusLabel(node: BudgetCategoryProgress): string {
+    return {
+      no_plan: node.allocationState === 'unbudgeted' ? 'No allocation' : 'Covered',
+      on_track: 'On track',
+      approaching: 'Approaching limit',
+      at_limit: 'At limit',
+      over_budget: 'Over budget',
+    }[this.hierarchyStatus(node)];
+  }
+
+  protected hierarchyColor(node: BudgetCategoryProgress): string {
+    return {
+      no_plan: 'var(--color-muted)',
+      on_track: 'var(--color-positive)',
+      approaching: 'color-mix(in srgb, var(--color-negative) 52%, var(--color-primary))',
+      at_limit: 'var(--color-negative)',
+      over_budget: 'var(--color-negative)',
+    }[this.hierarchyStatus(node)];
+  }
+
   protected progressColor(
     line: Pick<BudgetLineProgress, 'totalBudgeted' | 'percentSpent'>,
   ): string {
@@ -715,7 +779,7 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
     value: string;
   }> {
     return this.initialCategoryOptions(index).map((category) => ({
-      label: category.name,
+      label: this.categoryPathLabel(category.id),
       value: category.id,
     }));
   }
@@ -726,7 +790,9 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
     disabled: boolean;
   }> {
     return this.copyCategoryOptions(index).map((category) => ({
-      label: category.name + (category.status !== 'active' ? ' (unavailable)' : ''),
+      label:
+        this.categoryPathLabel(category.id) +
+        (category.status !== 'active' ? ' (unavailable)' : ''),
       value: category.id,
       disabled: category.status !== 'active' || category.applicability === 'income',
     }));
@@ -737,21 +803,11 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
     editingLineId?: string,
   ): Array<{ label: string; value: string }> {
     return this.availableLineCategories(budget, editingLineId).map((category) => ({
-      label: category.name + (category.status === 'archived' ? ' (archived current category)' : ''),
+      label:
+        this.categoryPathLabel(category.id) +
+        (category.status === 'archived' ? ' (archived current category)' : ''),
       value: category.id,
     }));
-  }
-
-  protected setProgressStatusFilter(value: string): void {
-    this.progressStatusFilter.set(value as ProgressStatusFilter);
-  }
-
-  protected setProgressSort(value: string): void {
-    this.progressSort.set(value as ProgressSort);
-  }
-
-  protected toggleProgressSortDirection(): void {
-    this.progressSortDirection.update((direction) => (direction === 'asc' ? 'desc' : 'asc'));
   }
 
   protected openDrillDown(drillDown: BudgetProgressDrillDown): void {
@@ -888,24 +944,31 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
     return true;
   }
 
-  private compareProgressLines(left: BudgetLineProgress, right: BudgetLineProgress): number {
-    switch (this.progressSort()) {
-      case 'category':
-        return this.categoryName(left.categoryId).localeCompare(
-          this.categoryName(right.categoryId),
-        );
-      case 'planned':
-        return left.planned - right.planned;
-      case 'actual':
-        return left.actual - right.actual;
-      case 'remaining':
-        return left.remaining - right.remaining;
-      case 'percentage':
-        return (left.percentSpent ?? -Infinity) - (right.percentSpent ?? -Infinity);
-      case 'status':
-        return this.progressStatusLabel(left).localeCompare(this.progressStatusLabel(right));
-      default:
-        return left.position - right.position;
+  private flattenCategoryProgress(
+    nodes: BudgetCategoryProgress[],
+    expanded: ReadonlySet<string>,
+    depth = 0,
+  ): Array<{ node: BudgetCategoryProgress; depth: number }> {
+    const visible: Array<{ node: BudgetCategoryProgress; depth: number }> = [];
+    for (const node of nodes) {
+      visible.push({ node, depth });
+      if (expanded.has(node.categoryId)) {
+        visible.push(...this.flattenCategoryProgress(node.children, expanded, depth + 1));
+      }
     }
+    return visible;
+  }
+
+  private pruneBudgetHierarchy(nodes: BudgetCategoryProgress[]): BudgetCategoryProgress[] {
+    return nodes.flatMap((node) => {
+      const children = this.pruneBudgetHierarchy(node.children);
+      const hasCoveredActivity =
+        node.allocationState === 'covered_by_ancestor' &&
+        (node.directActual !== 0 || node.directScheduledTarget !== 0);
+      const belongsInBreakdown =
+        node.allocationState === 'allocated' || hasCoveredActivity || children.length > 0;
+
+      return belongsInBreakdown ? [{ ...node, children }] : [];
+    });
   }
 }

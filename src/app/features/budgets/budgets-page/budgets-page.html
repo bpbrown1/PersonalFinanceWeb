@@ -83,7 +83,7 @@
               }
             </div>
             <div class="field">
-              <label [for]="'initial-amount-' + index">Planned amount</label>
+              <label [for]="'initial-amount-' + index">General allocation</label>
               <p-inputnumber
                 [inputId]="'initial-amount-' + index"
                 formControlName="plannedAmount"
@@ -120,7 +120,7 @@
           <p class="field-error" role="alert">{{ fieldError(createError(), 'lines') }}</p>
         }
         <div class="planned-total" aria-live="polite">
-          <span>Planned total</span>
+          <span>General allocation total</span>
           <strong>{{
             initialPlannedTotal()
               | currency: (createForm.controls.currency.value || 'USD').toUpperCase()
@@ -323,7 +323,7 @@
                 }
               </div>
               <div class="field">
-                <label [for]="'copy-amount-' + index">Planned amount</label>
+                <label [for]="'copy-amount-' + index">General allocation</label>
                 <p-inputnumber
                   [inputId]="'copy-amount-' + index"
                   formControlName="plannedAmount"
@@ -544,119 +544,141 @@
             </div>
           </div>
 
-          <section class="line-progress-section" aria-labelledby="line-progress-heading">
+          <section class="hierarchy-section" aria-labelledby="category-hierarchy-heading">
             <div class="progress-table-heading">
               <div>
-                <h4 id="line-progress-heading">Category progress</h4>
-                <p>Compare exact values or narrow the list by health.</p>
+                <h4 id="category-hierarchy-heading">Category budget breakdown</h4>
+                <p>
+                  Root totals include every descendant. Expand a branch to see where its plan and
+                  spending come from.
+                </p>
               </div>
-              <div class="progress-controls">
-                <div class="field">
-                  <label for="progress-status-filter">Status</label>
-                  <p-select
-                    inputId="progress-status-filter"
-                    [options]="progressStatusOptions"
-                    optionLabel="label"
-                    optionValue="value"
-                    [ngModel]="progressStatusFilter()"
-                    [ngModelOptions]="{ standalone: true }"
-                    (onChange)="setProgressStatusFilter($event.value)"
-                  />
+              @if (budgetCategoryHierarchy().length > 0) {
+                <div class="hierarchy-actions">
+                  <button pButton type="button" [text]="true" (click)="expandAllCategories()">
+                    Expand all
+                  </button>
+                  <button pButton type="button" [text]="true" (click)="collapseAllCategories()">
+                    Collapse all
+                  </button>
                 </div>
-                <div class="field">
-                  <label for="progress-sort">Sort by</label>
-                  <p-select
-                    inputId="progress-sort"
-                    [options]="progressSortOptions"
-                    optionLabel="label"
-                    optionValue="value"
-                    [ngModel]="progressSort()"
-                    [ngModelOptions]="{ standalone: true }"
-                    (onChange)="setProgressSort($event.value)"
-                  />
-                </div>
-                <button
-                  pButton
-                  type="button"
-                  class="sort-direction"
-                  severity="secondary"
-                  [outlined]="true"
-                  [rounded]="true"
-                  [iconOnly]="true"
-                  [attr.aria-label]="
-                    progressSortDirection() === 'asc'
-                      ? 'Sort category progress descending'
-                      : 'Sort category progress ascending'
-                  "
-                  (click)="toggleProgressSortDirection()"
-                >
-                  {{ progressSortDirection() === 'asc' ? '↑' : '↓' }}
-                </button>
-              </div>
+              }
             </div>
 
-            @if (data.lines.length === 0) {
-              <p class="lines-empty">No active category targets are available for progress.</p>
-            } @else if (visibleProgressLines().length === 0) {
-              <p class="lines-empty">No category targets match this status filter.</p>
+            @if (budgetCategoryHierarchy().length === 0) {
+              <p class="lines-empty">
+                No allocated categories or covered activity are available for this period.
+              </p>
             } @else {
-              <div class="progress-table-wrap">
-                <table class="progress-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Category</th>
-                      <th scope="col">Status</th>
-                      <th scope="col">Flexible plan</th>
-                      <th scope="col">Bill targets</th>
-                      <th scope="col">Total budgeted</th>
-                      <th scope="col">Actual</th>
-                      <th scope="col">Projected</th>
-                      <th scope="col">Remaining</th>
-                      <th scope="col">Used</th>
-                      <th scope="col">Activity</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (line of visibleProgressLines(); track line.lineId) {
-                      <tr [class]="progressStatus(line)">
-                        <th scope="row">{{ categoryName(line.categoryId) }}</th>
-                        <td>
-                          <span class="progress-status">{{ progressStatusLabel(line) }}</span>
-                        </td>
-                        <td>{{ line.planned | currency: data.currency }}</td>
-                        <td>{{ line.scheduledTarget | currency: data.currency }}</td>
-                        <td>{{ line.totalBudgeted | currency: data.currency }}</td>
-                        <td>{{ line.actual | currency: data.currency }}</td>
-                        <td>{{ line.projectedUsage | currency: data.currency }}</td>
-                        <td [class.negative-value]="line.remaining < 0">
-                          {{ line.remaining | currency: data.currency }}
-                        </td>
-                        <td class="used-cell">
-                          <span>{{ percentageLabel(line.percentSpent) }}</span>
+              <div class="hierarchy-scroll">
+                <div class="hierarchy-header" aria-hidden="true">
+                  <span>Category</span>
+                  <span>General</span>
+                  <span>Bill targets</span>
+                  <span>Total budgeted</span>
+                  <span>Total spent</span>
+                  <span>Remaining</span>
+                  <span>Used</span>
+                </div>
+                <ul class="category-tree" role="tree" aria-label="Budget category hierarchy">
+                  @for (item of visibleCategoryProgress(); track item.node.categoryId) {
+                    <li
+                      role="treeitem"
+                      [attr.aria-level]="item.depth + 1"
+                      [attr.aria-expanded]="
+                        item.node.children.length > 0
+                          ? expandedCategoryIds().has(item.node.categoryId)
+                          : null
+                      "
+                      [class.root-category-row]="item.depth === 0"
+                      [class.archived-category-row]="item.node.categoryStatus === 'archived'"
+                      [class]="'category-tree-item ' + hierarchyStatus(item.node)"
+                    >
+                      <div class="hierarchy-row">
+                        <div class="hierarchy-category" [style.--hierarchy-depth]="item.depth">
+                          @if (item.node.children.length > 0) {
+                            <button
+                              type="button"
+                              class="hierarchy-toggle"
+                              [attr.aria-label]="
+                                (expandedCategoryIds().has(item.node.categoryId)
+                                  ? 'Collapse '
+                                  : 'Expand ') + hierarchyPathLabel(item.node)
+                              "
+                              (click)="toggleCategory(item.node.categoryId)"
+                            >
+                              {{ expandedCategoryIds().has(item.node.categoryId) ? '−' : '+' }}
+                            </button>
+                          } @else {
+                            <span class="hierarchy-leaf" aria-hidden="true"></span>
+                          }
+                          <div class="hierarchy-copy">
+                            <strong>{{ item.node.categoryName }}</strong>
+                            <span
+                              class="progress-status allocation-state"
+                              [class.covered_by_ancestor]="
+                                item.node.allocationState === 'covered_by_ancestor'
+                              "
+                              [class.unbudgeted]="item.node.allocationState === 'unbudgeted'"
+                            >
+                              {{ allocationStateLabel(item.node) }}
+                            </span>
+                            @if (item.node.categoryStatus === 'archived') {
+                              <span class="progress-status archived-label">Archived</span>
+                            }
+                            <small>
+                              Direct spending
+                              {{ item.node.directActual | currency: data.currency }}
+                              @if (item.node.descendantAllocationCount > 0) {
+                                · {{ item.node.descendantAllocationCount }} descendant
+                                {{
+                                  item.node.descendantAllocationCount === 1
+                                    ? 'allocation'
+                                    : 'allocations'
+                                }}
+                              }
+                            </small>
+                          </div>
+                        </div>
+                        <span data-label="General">{{
+                          item.node.directPlanned | currency: data.currency
+                        }}</span>
+                        <span data-label="Bill targets">{{
+                          item.node.directScheduledTarget | currency: data.currency
+                        }}</span>
+                        <strong data-label="Total budgeted">{{
+                          item.node.rollupTarget | currency: data.currency
+                        }}</strong>
+                        <strong data-label="Total spent">{{
+                          item.node.rollupActual | currency: data.currency
+                        }}</strong>
+                        <strong
+                          data-label="Remaining"
+                          [class.negative-value]="item.node.remaining < 0"
+                        >
+                          {{ item.node.remaining | currency: data.currency }}
+                        </strong>
+                        <div class="used-cell" data-label="Used">
+                          <span>{{ hierarchyStatusLabel(item.node) }}</span>
+                          <small>{{ percentageLabel(item.node.percentageUsed) }}</small>
                           <p-progressbar
                             class="budget-progress-bar compact"
-                            [attr.aria-label]="categoryName(line.categoryId) + ' budget used'"
-                            [value]="visualPercentage(line.percentSpent)"
+                            [attr.aria-label]="hierarchyPathLabel(item.node) + ' budget used'"
+                            [value]="visualPercentage(item.node.percentageUsed)"
                             [showValue]="false"
-                            [color]="progressColor(line)"
+                            [color]="hierarchyColor(item.node)"
                           />
-                        </td>
-                        <td>
-                          <button
-                            pButton
-                            type="button"
-                            class="table-action"
-                            [text]="true"
-                            (click)="openDrillDown(line.drillDown)"
-                          >
-                            View activity
-                          </button>
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
+                        </div>
+                      </div>
+                    </li>
+                  }
+                </ul>
               </div>
+              <p class="commitment-note hierarchy-note" role="note">
+                General allocations are additive. Spending in an unallocated child is covered by its
+                closest allocated ancestor; it is unbudgeted only when no allocation exists in its
+                path.
+              </p>
             }
           </section>
 
@@ -972,7 +994,10 @@
         <div class="section-heading">
           <div>
             <h3 id="budget-lines-heading">Category targets</h3>
-            <p>Ordering is retained for future planning and reporting views.</p>
+            <p>
+              Each line is a general allocation. Parent totals add their own allocation and every
+              descendant allocation.
+            </p>
           </div>
           @if (budget.status === 'active' && editingLineId() === null) {
             <button pButton type="button" (click)="startAddLine()">Add line</button>
@@ -994,9 +1019,12 @@
               @if (fieldError(lineError(), 'categoryId')) {
                 <p class="field-error">{{ fieldError(lineError(), 'categoryId') }}</p>
               }
+              @if (allocationImpactLabel(lineForm.controls.categoryId.value); as impact) {
+                <p class="allocation-impact">{{ impact }}</p>
+              }
             </div>
             <div class="field">
-              <label for="new-line-amount">Planned amount</label>
+              <label for="new-line-amount">General allocation</label>
               <p-inputnumber
                 inputId="new-line-amount"
                 formControlName="plannedAmount"
@@ -1046,9 +1074,12 @@
                         optionLabel="label"
                         optionValue="value"
                       />
+                      @if (allocationImpactLabel(lineForm.controls.categoryId.value); as impact) {
+                        <p class="allocation-impact">{{ impact }}</p>
+                      }
                     </div>
                     <div class="field">
-                      <label [for]="'edit-line-amount-' + line.id">Planned amount</label>
+                      <label [for]="'edit-line-amount-' + line.id">General allocation</label>
                       <p-inputnumber
                         [inputId]="'edit-line-amount-' + line.id"
                         formControlName="plannedAmount"
@@ -1076,7 +1107,7 @@
                   <div class="line-copy">
                     <strong>{{ categoryName(line.categoryId) }}</strong>
                     <span
-                      >{{ line.status
+                      >{{ categoryPathLabel(line.categoryId) }} · {{ line.status
                       }}{{
                         line.archivedAt
                           ? ' · archived ' + (line.archivedAt | date: 'mediumDate')

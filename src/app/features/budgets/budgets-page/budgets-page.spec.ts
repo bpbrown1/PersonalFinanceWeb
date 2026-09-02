@@ -51,7 +51,16 @@ describe('BudgetsPage', () => {
     };
     categoriesApi = {
       list: vi.fn(() =>
-        of([categoryFixture(), categoryFixture({ id: 'category-2', name: 'Dining' })]),
+        of([
+          categoryFixture(),
+          categoryFixture({ id: 'category-2', name: 'Dining', parentId: 'category-1' }),
+          categoryFixture({
+            id: 'category-child',
+            name: 'Restaurants',
+            parentId: 'category-2',
+          }),
+          categoryFixture({ id: 'category-unplanned', name: 'Miscellaneous' }),
+        ]),
       ),
     };
     notifications = { show: vi.fn() };
@@ -95,11 +104,11 @@ describe('BudgetsPage', () => {
     component.selectBudget(budgetFixture());
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Budget progress');
-    expect(fixture.nativeElement.textContent).not.toContain('Ordering is retained');
+    expect(fixture.nativeElement.textContent).not.toContain('Each line is a general allocation');
 
     component.selectDetailView('plan');
     fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Ordering is retained');
+    expect(fixture.nativeElement.textContent).toContain('Each line is a general allocation');
     expect(fixture.nativeElement.textContent).not.toContain('Plan versus actual');
   });
 
@@ -230,13 +239,15 @@ describe('BudgetsPage', () => {
     expect(text).toContain('Total budgeted');
     expect(text).toContain('Projected remaining');
     expect(text).toContain('outstanding bills');
-    expect(text).toContain('Over budget');
     expect(text).toContain('On track');
     expect(text).toContain('Flexible spending');
     expect(text).toContain('Bill spending');
     expect(text).toContain('Unplanned spending');
     expect(text).toContain('Uncategorized');
     expect(text).toContain('Budget components');
+    expect(text).toContain('Category budget breakdown');
+    expect(text).toContain('General');
+    expect(text).toContain('closest allocated ancestor');
     expect(text).toContain('Recurring bill');
     expect(text).toContain('Annual membership');
     expect(text).toContain('Scheduled commitments');
@@ -272,20 +283,42 @@ describe('BudgetsPage', () => {
     expect(text).toContain('Under target $8.00');
   });
 
-  it('filters and sorts progress lines without changing server totals', () => {
+  it('shows only budget-relevant branches and expands an arbitrarily deep category branch', () => {
     const fixture = TestBed.createComponent(BudgetsPage);
     fixture.detectChanges();
     const component = fixture.componentInstance as any;
     component.selectBudget(budgetFixture());
+    fixture.detectChanges();
 
-    component.setProgressStatusFilter('over_budget');
-    component.setProgressSort('actual');
-    component.progressSortDirection.set('desc');
+    const textBefore = fixture.nativeElement.textContent;
+    expect(textBefore).toContain('Food');
+    expect(textBefore).not.toContain('Miscellaneous');
+    expect(textBefore).not.toContain('Restaurants');
 
-    expect(component.visibleProgressLines().map((line: { lineId: string }) => line.lineId)).toEqual(
-      ['line-2'],
-    );
-    expect(component.progress().totalActual).toBe(550);
+    component.toggleCategory('category-1');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Dining');
+    expect(fixture.nativeElement.textContent).not.toContain('Restaurants');
+
+    component.toggleCategory('category-2');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Restaurants');
+    expect(fixture.nativeElement.textContent).toContain('Covered by ancestor');
+    expect(component.progress().hierarchy[0].rollupActual).toBe(500);
+  });
+
+  it('uses full category paths and explains additive ancestor impact in allocation forms', () => {
+    const fixture = TestBed.createComponent(BudgetsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+    component.selectBudget(budgetFixture());
+    component.selectDetailView('plan');
+    component.startAddLine();
+    component.lineForm.controls.categoryId.setValue('category-child');
+    fixture.detectChanges();
+
+    expect(component.categoryPathLabel('category-child')).toBe('Food › Dining › Restaurants');
+    expect(fixture.nativeElement.textContent).toContain('increases each ancestor total');
   });
 
   it('ignores a stale progress response after another budget is selected', () => {
@@ -546,6 +579,97 @@ function progressFixture(): BudgetProgress {
         ],
       },
     ],
+    hierarchy: [
+      {
+        categoryId: 'category-1',
+        categoryName: 'Food',
+        path: [{ categoryId: 'category-1', name: 'Food' }],
+        categoryStatus: 'active',
+        allocationState: 'allocated',
+        lineId: 'line-1',
+        directPlanned: 400,
+        directScheduledTarget: 450,
+        directTarget: 850,
+        rollupTarget: 975.5,
+        directFlexibleActual: 250,
+        directBillActual: 0,
+        directActual: 250,
+        rollupActual: 500,
+        remaining: 475.5,
+        percentageUsed: 51.26,
+        descendantAllocationCount: 1,
+        children: [
+          {
+            categoryId: 'category-2',
+            categoryName: 'Dining',
+            path: [
+              { categoryId: 'category-1', name: 'Food' },
+              { categoryId: 'category-2', name: 'Dining' },
+            ],
+            categoryStatus: 'active',
+            allocationState: 'allocated',
+            lineId: 'line-2',
+            directPlanned: 125.5,
+            directScheduledTarget: 0,
+            directTarget: 125.5,
+            rollupTarget: 125.5,
+            directFlexibleActual: 115,
+            directBillActual: 0,
+            directActual: 115,
+            rollupActual: 160,
+            remaining: -34.5,
+            percentageUsed: 127.49,
+            descendantAllocationCount: 0,
+            children: [
+              {
+                categoryId: 'category-child',
+                categoryName: 'Restaurants',
+                path: [
+                  { categoryId: 'category-1', name: 'Food' },
+                  { categoryId: 'category-2', name: 'Dining' },
+                  { categoryId: 'category-child', name: 'Restaurants' },
+                ],
+                categoryStatus: 'active',
+                allocationState: 'covered_by_ancestor',
+                lineId: null,
+                directPlanned: 0,
+                directScheduledTarget: 0,
+                directTarget: 0,
+                rollupTarget: 0,
+                directFlexibleActual: 45,
+                directBillActual: 0,
+                directActual: 45,
+                rollupActual: 45,
+                remaining: -45,
+                percentageUsed: null,
+                descendantAllocationCount: 0,
+                children: [],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        categoryId: 'category-unplanned',
+        categoryName: 'Miscellaneous',
+        path: [{ categoryId: 'category-unplanned', name: 'Miscellaneous' }],
+        categoryStatus: 'active',
+        allocationState: 'unbudgeted',
+        lineId: null,
+        directPlanned: 0,
+        directScheduledTarget: 0,
+        directTarget: 0,
+        rollupTarget: 0,
+        directFlexibleActual: 50,
+        directBillActual: 0,
+        directActual: 50,
+        rollupActual: 50,
+        remaining: -50,
+        percentageUsed: null,
+        descendantAllocationCount: 0,
+        children: [],
+      },
+    ],
     drillDown: drillDown(
       ['category-1', 'category-child', 'category-2'],
       ['transaction-1', 'transaction-2', 'transaction-3'],
@@ -611,7 +735,7 @@ function categoryFixture(overrides: Partial<TransactionCategory> = {}): Transact
   return {
     id: 'category-1',
     ownerId: 'owner-1',
-    name: 'Groceries',
+    name: 'Food',
     applicability: 'expense',
     parentId: null,
     status: 'active',
