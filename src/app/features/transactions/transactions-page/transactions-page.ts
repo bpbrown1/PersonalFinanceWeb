@@ -1,4 +1,4 @@
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { CurrencyPipe, DatePipe, TitleCasePipe } from '@angular/common';
 import {
   Component,
   DestroyRef,
@@ -58,6 +58,7 @@ type CreateMode = CashFlowTransactionType | 'transfer';
     FormsModule,
     CurrencyPipe,
     DatePipe,
+    TitleCasePipe,
     RouterLink,
     ButtonModule,
     InputNumberModule,
@@ -1238,6 +1239,15 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
 
   private restoreSearchStateFromUrl(): void {
     const params = this.route.snapshot.queryParamMap;
+    const entryMode = params.get('mode');
+    if (entryMode === 'income' || entryMode === 'expense') {
+      this.createMode.set(entryMode);
+      this.createForm.controls.type.setValue(entryMode);
+      this.createForm.controls.accountId.setValue(params.get('accountId') ?? '');
+      this.createForm.controls.description.setValue(
+        entryMode === 'income' ? 'Interest income' : 'Interest charge or fee',
+      );
+    }
     this.budgetProgressPath.set(params.get('budgetProgressPath'));
     const status = params.get('status');
     if (status === 'active' || status === 'deleted') this.filter.set(status);

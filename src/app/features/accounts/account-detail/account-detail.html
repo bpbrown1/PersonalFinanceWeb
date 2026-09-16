@@ -36,9 +36,16 @@
         · {{ terms }}
       }
     </p>
-    <a [routerLink]="['/accounts', current.id, 'history']" class="history-link"
-      >View balance history →</a
-    >
+    <nav class="account-links" aria-label="Account activity">
+      <a [routerLink]="['/accounts', current.id, 'history']" class="history-link"
+        >View balance history →</a
+      >
+      @if (current.status === 'active') {
+        <a [routerLink]="['/accounts', current.id, 'reconcile']" class="history-link"
+          >Reconcile account →</a
+        >
+      }
+    </nav>
   </header>
   <form [formGroup]="form" (ngSubmit)="save()" novalidate>
     <section class="form-card" aria-labelledby="account-details-heading">

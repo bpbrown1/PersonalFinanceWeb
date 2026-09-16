@@ -36,6 +36,9 @@ describe('application routes', () => {
     const create = accounts?.children?.find((route) => route.path === 'new');
     const detail = accounts?.children?.find((route) => route.path === ':accountId');
     const history = accounts?.children?.find((route) => route.path === ':accountId/history');
+    const reconciliation = accounts?.children?.find(
+      (route) => route.path === ':accountId/reconcile',
+    );
 
     expect(accounts?.title).toBe('Accounts · Personal Finance');
     expect(landing?.loadComponent).toBeTypeOf('function');
@@ -47,6 +50,8 @@ describe('application routes', () => {
     expect(detail?.canDeactivate).toHaveLength(1);
     expect(history?.title).toBe('Balance history · Personal Finance');
     expect(history?.loadComponent).toBeTypeOf('function');
+    expect(reconciliation?.title).toBe('Reconcile account · Personal Finance');
+    expect(reconciliation?.loadComponent).toBeTypeOf('function');
   });
 
   it('protects the lazy category management route from losing unsaved changes', () => {

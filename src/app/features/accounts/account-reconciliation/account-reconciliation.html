@@ -1,0 +1,268 @@
+@if (loading()) {
+  <app-page-state
+    kind="loading"
+    title="Loading reconciliation"
+    message="Retrieving the account, categories, and prior reconciliations."
+  />
+} @else if (loadError()) {
+  <app-page-state
+    kind="error"
+    title="Reconciliation unavailable"
+    [message]="loadError()!.userMessage"
+    actionLabel="Try again"
+    (action)="load()"
+  />
+} @else if (account(); as current) {
+  <header class="page-header">
+    <a [routerLink]="['/accounts', current.id]" class="back-link">← {{ current.name }}</a>
+    <p class="eyebrow">Make the ledger match reality</p>
+    <h1>Reconcile account</h1>
+    <p>
+      Compare {{ accountDisplayLabel(current) }} with a statement. No interest is estimated from APR
+      or APY.
+    </p>
+  </header>
+
+  <section class="interest-card" aria-labelledby="interest-heading">
+    <div>
+      <p class="eyebrow">Posted interest</p>
+      <h2 id="interest-heading">Record the amount your institution posted</h2>
+      <p>
+        Use an explicit categorized transaction so the amount, date, and source remain explainable.
+      </p>
+    </div>
+    <div class="interest-actions">
+      <a [routerLink]="['/transactions']" [queryParams]="{ mode: 'income', accountId: current.id }"
+        >Record interest income</a
+      >
+      <a [routerLink]="['/transactions']" [queryParams]="{ mode: 'expense', accountId: current.id }"
+        >Record interest charge or fee</a
+      >
+    </div>
+  </section>
+
+  <section class="reconcile-card" aria-labelledby="statement-heading">
+    <header>
+      <span class="step">1</span>
+      <div>
+        <h2 id="statement-heading">Enter statement details</h2>
+        <p>Use the closing date and balance shown by your institution.</p>
+      </div>
+    </header>
+    <form [formGroup]="statementForm" (ngSubmit)="review()" novalidate>
+      <div class="field">
+        <label for="statement-date">Statement date</label>
+        <input
+          id="statement-date"
+          type="date"
+          formControlName="statementDate"
+          [min]="current.openingDate"
+          [max]="today"
+        />
+        @if (
+          statementForm.controls.statementDate.touched &&
+          statementForm.controls.statementDate.invalid
+        ) {
+          <p class="field-error">Choose a date from the account opening date through today.</p>
+        }
+      </div>
+      <div class="field">
+        <label for="statement-balance">Statement balance · {{ current.currency }}</label>
+        <input
+          id="statement-balance"
+          type="number"
+          step="0.01"
+          inputmode="decimal"
+          formControlName="statementBalance"
+        />
+        @if (
+          statementForm.controls.statementBalance.touched &&
+          statementForm.controls.statementBalance.invalid
+        ) {
+          <p class="field-error">Enter a balance with no more than two decimal places.</p>
+        }
+      </div>
+      <button pButton type="submit" [disabled]="previewing()">
+        {{ previewing() ? 'Comparing…' : 'Review comparison' }}
+      </button>
+    </form>
+    @if (previewError()) {
+      <p class="field-error" role="alert">{{ previewError()!.userMessage }}</p>
+    }
+  </section>
+
+  @if (preview(); as comparison) {
+    <section class="reconcile-card comparison" aria-labelledby="comparison-heading">
+      <header>
+        <span class="step">2</span>
+        <div>
+          <h2 id="comparison-heading">Review the comparison</h2>
+          <p>
+            {{ comparison.transactionCount }} active ledger entries contribute through
+            {{ comparison.statementDate | date: 'mediumDate' }}.
+          </p>
+        </div>
+      </header>
+      <div class="comparison-grid">
+        <article>
+          <span>Statement balance</span
+          ><strong>{{ comparison.statementBalance | currency: comparison.currency }}</strong>
+        </article>
+        <article>
+          <span>Calculated ledger balance</span
+          ><strong>{{ comparison.calculatedBalance | currency: comparison.currency }}</strong>
+        </article>
+        <article
+          [class.matches]="comparison.difference === 0"
+          [class.differs]="comparison.difference !== 0"
+        >
+          <span>Difference</span
+          ><strong>{{ comparison.difference | currency: comparison.currency }}</strong>
+        </article>
+      </div>
+
+      <details class="activity" open>
+        <summary>Contributing activity</summary>
+        @if (contributingTransactions().length === 0) {
+          <p>No transactions contribute; the calculated balance starts with the opening balance.</p>
+        } @else {
+          <ul>
+            @for (transaction of contributingTransactions(); track transaction.id) {
+              <li>
+                <span
+                  ><strong>{{ transaction.description }}</strong
+                  ><small
+                    >{{ transaction.transactionDate | date: 'mediumDate' }} ·
+                    {{ categoryName(transaction.categoryId) }}</small
+                  ></span
+                ><strong [class.negative]="transaction.balanceImpact < 0">{{
+                  transaction.balanceImpact | currency: comparison.currency
+                }}</strong>
+              </li>
+            }
+          </ul>
+          @if (contributingTotal() > contributingTransactions().length) {
+            <p>
+              Showing the newest {{ contributingTransactions().length }} of
+              {{ contributingTotal() }} contributing entries.
+            </p>
+          }
+        }
+      </details>
+
+      <form [formGroup]="confirmForm" (ngSubmit)="confirm()" novalidate>
+        @if (comparison.difference !== 0) {
+          <div class="adjustment-note" role="status">
+            Confirming creates a {{ comparison.adjustmentType }} reconciliation adjustment for
+            <strong>{{
+              comparison.difference < 0
+                ? -comparison.difference
+                : (comparison.difference | currency: comparison.currency)
+            }}</strong
+            >.
+          </div>
+          <div class="field">
+            <label for="adjustment-category">Adjustment category</label>
+            <select id="adjustment-category" formControlName="categoryId">
+              <option value="">Select a {{ comparison.adjustmentType }} category</option>
+              @for (category of compatibleCategories(); track category.id) {
+                <option [value]="category.id">{{ category.name }}</option>
+              }
+            </select>
+            @if (
+              confirmForm.controls.categoryId.touched && !confirmForm.controls.categoryId.value
+            ) {
+              <p class="field-error">Choose a compatible category.</p>
+            }
+          </div>
+          <div class="field explanation">
+            <label for="explanation">Explanation</label>
+            <textarea
+              id="explanation"
+              rows="3"
+              maxlength="2000"
+              formControlName="explanation"
+              placeholder="Explain why this adjustment is needed"
+            ></textarea>
+            @if (
+              confirmForm.controls.explanation.touched &&
+              !confirmForm.controls.explanation.value.trim()
+            ) {
+              <p class="field-error">Explain the discrepancy before confirming.</p>
+            }
+          </div>
+        } @else {
+          <p class="match-message">
+            The balances match. Confirming records an audit entry and creates no adjustment
+            transaction.
+          </p>
+        }
+        <label class="confirmation"
+          ><input type="checkbox" formControlName="confirmed" /> I reviewed the account, amount,
+          date, category, and contributing activity.</label
+        >
+        @if (confirmForm.controls.confirmed.touched && !confirmForm.controls.confirmed.value) {
+          <p class="field-error">Confirm that you reviewed the comparison.</p>
+        }
+        @if (stalePreview()) {
+          <div class="stale" role="alert">
+            <strong>This comparison is stale.</strong
+            ><span
+              >The ledger changed after preview. Review a fresh comparison before confirming.</span
+            ><button pButton type="button" (click)="review()">Refresh comparison</button>
+          </div>
+        }
+        @if (confirmError() && !stalePreview()) {
+          <p class="field-error" role="alert">{{ confirmError()!.userMessage }}</p>
+        }
+        <footer>
+          <button pButton type="button" [text]="true" (click)="cancelPreview()">Cancel</button
+          ><button pButton type="submit" [disabled]="confirming() || stalePreview()">
+            {{ confirming() ? 'Confirming…' : 'Confirm reconciliation' }}
+          </button>
+        </footer>
+      </form>
+    </section>
+  }
+
+  @if (result(); as completed) {
+    <section class="result" role="status">
+      <strong>Reconciliation complete</strong
+      ><span>{{
+        completed.transactionId
+          ? 'A linked reconciliation adjustment was added to the ledger.'
+          : 'The matching balance was recorded without an adjustment.'
+      }}</span>
+    </section>
+  }
+
+  <section class="history-card" aria-labelledby="reconciliation-history-heading">
+    <header>
+      <div>
+        <p class="eyebrow">Audit trail</p>
+        <h2 id="reconciliation-history-heading">Previous reconciliations</h2>
+      </div>
+    </header>
+    @if (history().length === 0) {
+      <p class="empty-copy">No reconciliations have been recorded for this account.</p>
+    }
+    @for (item of history(); track item.id) {
+      <article class="history-row">
+        <div>
+          <strong>{{ item.statementDate | date: 'mediumDate' }}</strong
+          ><span>Recorded {{ item.createdAt | date: 'medium' }}</span>
+        </div>
+        <div>
+          <span>Statement</span
+          ><strong>{{ item.statementBalance | currency: current.currency }}</strong>
+        </div>
+        <div>
+          <span>Difference</span><strong>{{ item.difference | currency: current.currency }}</strong>
+        </div>
+        <span class="provenance">{{
+          item.transactionId ? 'Reconciliation adjustment' : 'Matched · no adjustment'
+        }}</span>
+      </article>
+    }
+  </section>
+}

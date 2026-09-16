@@ -1,6 +1,7 @@
 export type CashFlowTransactionType = 'income' | 'expense';
 export type TransactionType = CashFlowTransactionType | 'transfer_out' | 'transfer_in';
 export type TransactionStatus = 'active' | 'deleted';
+export type TransactionProvenance = 'manual' | 'imported' | 'reconciliation';
 export type TransactionStatusFilter = TransactionStatus | 'all';
 export type TransactionSortField = 'date' | 'amount';
 export type SortDirection = 'asc' | 'desc';
@@ -25,9 +26,11 @@ export interface FinancialTransaction {
   categoryId: string | null;
   splits: TransactionSplit[];
   transferId: string | null;
+  reconciliationId: string | null;
   amount: number;
   balanceImpact: number;
   type: TransactionType;
+  provenance: TransactionProvenance;
   transactionDate: string;
   description: string;
   merchantPayee: string | null;

@@ -678,3 +678,18 @@ dd {
 .budget-drill-down-context .eyebrow {
   margin-bottom: 0.35rem;
 }
+.provenance-pill {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.immutable-note {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+}
