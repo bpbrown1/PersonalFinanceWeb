@@ -67,12 +67,13 @@
             {{ account.type.replace('_', ' ') | titlecase }}
           </p>
           <h2>{{ account.name }}</h2>
+          <p class="account-identifier">{{ accountIdentifierLabel(account) }}</p>
         </div>
         <p class="balance">
           {{ account.currentBalance | currency: account.currency : 'symbol' : '1.2-2' }}
         </p>
         <p class="currency">
-          {{ account.currency }} · Opened {{ account.openingDate | date: 'mediumDate' }}
+          Opened {{ account.openingDate | date: 'mediumDate' }}
           @if (interestTerms(account); as terms) {
             · {{ terms }}
           }
@@ -81,7 +82,7 @@
           <a
             class="card-link"
             [routerLink]="['/accounts', account.id]"
-            [attr.aria-label]="'View and edit ' + account.name"
+            [attr.aria-label]="'View and edit ' + accountDisplayLabel(account)"
             >View and edit</a
           >
           @if (account.status === 'active') {

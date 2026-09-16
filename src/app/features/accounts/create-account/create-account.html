@@ -36,6 +36,69 @@
       } @else if (serverFieldErrors()['name']) {
         <p id="account-name-error" class="field-error">{{ serverFieldErrors()['name'] }}</p>
       }
+      @if (duplicateCheckLoading()) {
+        <p class="duplicate-check-status" role="status">Checking for similarly named accounts…</p>
+      } @else if (duplicateNameMatches().length > 0) {
+        <aside class="duplicate-warning" role="status" aria-live="polite">
+          <strong>Another active account uses this name.</strong>
+          <span>You can still add this account. Check these details to tell them apart:</span>
+          <ul>
+            @for (match of duplicateNameMatches(); track match.id) {
+              <li>{{ accountDisplayLabel(match) }}</li>
+            }
+          </ul>
+        </aside>
+      } @else if (duplicateCheckFailed()) {
+        <p class="duplicate-check-status" role="status">
+          We couldn't check for similar names. You can still add this account.
+        </p>
+      }
+    </div>
+    <div class="field">
+      <label for="institution-name"> Institution <span class="optional">(optional)</span> </label>
+      <input
+        id="institution-name"
+        type="text"
+        formControlName="institutionName"
+        maxlength="100"
+        autocomplete="organization"
+        placeholder="Example Bank"
+        [attr.aria-invalid]="
+          form.controls.institutionName.invalid && form.controls.institutionName.touched
+        "
+      />
+      <small>The bank, credit union, lender, or card issuer.</small>
+      @if (form.controls.institutionName.touched && form.controls.institutionName.invalid) {
+        <p class="field-error">Use 100 characters or fewer.</p>
+      } @else if (serverFieldErrors()['institutionName']) {
+        <p class="field-error">{{ serverFieldErrors()['institutionName'] }}</p>
+      }
+    </div>
+    <div class="field">
+      <label for="account-number-last-four">
+        Account number last four <span class="optional">(optional)</span>
+      </label>
+      <input
+        id="account-number-last-four"
+        type="text"
+        formControlName="accountNumberLastFour"
+        minlength="4"
+        maxlength="4"
+        inputmode="numeric"
+        autocomplete="off"
+        placeholder="1234"
+        [attr.aria-invalid]="
+          form.controls.accountNumberLastFour.invalid && form.controls.accountNumberLastFour.touched
+        "
+      />
+      <small>Enter only the final four digits. Never enter a complete account number.</small>
+      @if (
+        form.controls.accountNumberLastFour.touched && form.controls.accountNumberLastFour.invalid
+      ) {
+        <p class="field-error">Enter exactly four digits.</p>
+      } @else if (serverFieldErrors()['accountNumberLastFour']) {
+        <p class="field-error">{{ serverFieldErrors()['accountNumberLastFour'] }}</p>
+      }
     </div>
     <div class="field">
       <label for="account-type">Account type <span aria-hidden="true">*</span></label>

@@ -17,6 +17,7 @@ import { AppHttpError } from '../../../api/errors/app-http-error';
 import { SubmissionState } from '../../../api/request-state/submission-state';
 import { HasPendingChanges } from '../../../core/guards/pending-changes.guard';
 import { NotificationService } from '../../../core/notification.service';
+import { accountIdentifierLabel } from '../../../shared/accounts/account-label';
 import { PageState } from '../../../shared/page-state/page-state';
 
 @Component({
@@ -57,6 +58,7 @@ export class AccountDetail implements OnInit, HasPendingChanges {
   protected readonly serverFieldErrors = signal<Readonly<Record<string, string>>>({});
   protected readonly lifecycleBusy = signal(false);
   protected readonly submission = new SubmissionState();
+  protected readonly accountIdentifierLabel = accountIdentifierLabel;
   protected readonly accountTypes: ReadonlyArray<{ value: AccountType; label: string }> = [
     { value: 'checking', label: 'Checking' },
     { value: 'savings', label: 'Savings' },
@@ -78,6 +80,8 @@ export class AccountDetail implements OnInit, HasPendingChanges {
     openingBalance: this.formBuilder.control<number | null>(null, [
       Validators.pattern(/^-?\d{1,17}(\.\d{1,2})?$/),
     ]),
+    institutionName: ['', Validators.maxLength(100)],
+    accountNumberLastFour: ['', Validators.pattern(/^\d{4}$/)],
     interestRate: this.formBuilder.control<number | null>(null, [
       Validators.min(0),
       Validators.max(999.999999),
@@ -223,6 +227,8 @@ export class AccountDetail implements OnInit, HasPendingChanges {
       currency: account.currency,
       openingDate: account.openingDate,
       openingBalance: account.openingBalance,
+      institutionName: account.institutionName ?? '',
+      accountNumberLastFour: account.accountNumberLastFour ?? '',
       interestRate: account.interestRate,
     };
   }
@@ -238,6 +244,11 @@ export class AccountDetail implements OnInit, HasPendingChanges {
     if (value.openingDate !== account.openingDate) request.openingDate = value.openingDate!;
     if (value.openingBalance !== null && value.openingBalance !== account.openingBalance)
       request.openingBalance = value.openingBalance;
+    const institutionName = value.institutionName?.trim() || null;
+    if (institutionName !== account.institutionName) request.institutionName = institutionName;
+    const accountNumberLastFour = value.accountNumberLastFour || null;
+    if (accountNumberLastFour !== account.accountNumberLastFour)
+      request.accountNumberLastFour = accountNumberLastFour;
     const rateType = value.interestRate === null ? null : this.interestRateTypeFor(value.type);
     if (value.interestRate !== account.interestRate || rateType !== account.interestRateType) {
       request.interestRate = value.interestRate;

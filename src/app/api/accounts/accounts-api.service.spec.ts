@@ -52,6 +52,17 @@ describe('AccountsApiService', () => {
     await expect(result).resolves.toEqual(['AED', 'EUR', 'USD', 'ZWG']);
   });
 
+  it('retrieves active normalized-name matches for advisory duplicate detection', async () => {
+    const account = accountFixture();
+    const result = firstValueFrom(service.findActiveNameMatches(' Everyday Checking '));
+    const request = http.expectOne(
+      'http://localhost:8080/api/v1/accounts/name-matches?name=%20Everyday%20Checking%20',
+    );
+    expect(request.request.method).toBe('GET');
+    request.flush([account]);
+    await expect(result).resolves.toEqual([account]);
+  });
+
   it('creates an account using the documented request contract', async () => {
     const body: CreateFinancialAccountRequest = {
       name: 'Everyday Checking',
@@ -61,6 +72,8 @@ describe('AccountsApiService', () => {
       openingBalance: 1250.75,
       interestRate: 4.25,
       interestRateType: 'apy',
+      institutionName: 'Example Bank',
+      accountNumberLastFour: '1234',
     };
     const result = firstValueFrom(service.create(body));
     const request = http.expectOne('http://localhost:8080/api/v1/accounts');
@@ -134,6 +147,8 @@ function accountFixture(): FinancialAccount {
     currentBalance: 1250.75,
     interestRate: 4.25,
     interestRateType: 'apy',
+    institutionName: 'Example Bank',
+    accountNumberLastFour: '1234',
     status: 'active',
     archivedAt: null,
     createdAt: '2026-08-22T18:30:00Z',

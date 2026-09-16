@@ -26,6 +26,12 @@ export class AccountsApiService {
     return this.http.get<string[]>(this.accountsUrl + '/currencies');
   }
 
+  findActiveNameMatches(name: string): Observable<FinancialAccount[]> {
+    return this.http.get<FinancialAccount[]>(this.accountsUrl + '/name-matches', {
+      params: { name },
+    });
+  }
+
   create(request: CreateFinancialAccountRequest): Observable<FinancialAccount> {
     return this.http.post<FinancialAccount>(this.accountsUrl, request);
   }

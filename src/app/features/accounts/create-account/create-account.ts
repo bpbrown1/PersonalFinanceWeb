@@ -1,13 +1,32 @@
-import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  HostListener,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { SelectModule } from 'primeng/select';
-import { finalize } from 'rxjs';
+import {
+  catchError,
+  debounceTime,
+  distinctUntilChanged,
+  finalize,
+  map,
+  of,
+  switchMap,
+  tap,
+} from 'rxjs';
 import { AccountsApiService } from '../../../api/accounts/accounts-api.service';
 import {
   AccountType,
   CreateFinancialAccountRequest,
+  FinancialAccount,
   InterestRateType,
 } from '../../../api/accounts/account.models';
 import { ApiErrorPresenter } from '../../../api/errors/api-error-presenter.service';
@@ -15,6 +34,7 @@ import { AppHttpError } from '../../../api/errors/app-http-error';
 import { SubmissionState } from '../../../api/request-state/submission-state';
 import { HasPendingChanges } from '../../../core/guards/pending-changes.guard';
 import { NotificationService } from '../../../core/notification.service';
+import { accountLabel } from '../../../shared/accounts/account-label';
 
 @Component({
   selector: 'app-create-account',
@@ -28,12 +48,17 @@ export class CreateAccount implements OnInit, HasPendingChanges {
   private readonly errors = inject(ApiErrorPresenter);
   private readonly notifications = inject(NotificationService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly submission = new SubmissionState();
   protected readonly serverFieldErrors = signal<Readonly<Record<string, string>>>({});
   protected readonly currencies = signal<string[]>([]);
   protected readonly currenciesLoading = signal(true);
   protected readonly currenciesError = signal<AppHttpError | null>(null);
+  protected readonly duplicateNameMatches = signal<FinancialAccount[]>([]);
+  protected readonly duplicateCheckLoading = signal(false);
+  protected readonly duplicateCheckFailed = signal(false);
+  protected readonly accountDisplayLabel = accountLabel;
   protected readonly currencyCatalogReady = computed(
     () =>
       !this.currenciesLoading() && this.currenciesError() === null && this.currencies().length > 0,
@@ -59,6 +84,8 @@ export class CreateAccount implements OnInit, HasPendingChanges {
     openingBalance: this.formBuilder.control<number | null>(null, [
       Validators.pattern(/^-?\d{1,17}(\.\d{1,2})?$/),
     ]),
+    institutionName: ['', Validators.maxLength(100)],
+    accountNumberLastFour: ['', Validators.pattern(/^\d{4}$/)],
     interestRate: this.formBuilder.control<number | null>(null, [
       Validators.min(0),
       Validators.max(999.999999),
@@ -74,6 +101,33 @@ export class CreateAccount implements OnInit, HasPendingChanges {
       previousRateType = nextRateType;
       this.serverFieldErrors.set({});
     });
+    this.form.controls.name.valueChanges
+      .pipe(
+        map((name) => name?.trim() ?? ''),
+        debounceTime(350),
+        distinctUntilChanged(
+          (previous, current) => previous.toLocaleLowerCase() === current.toLocaleLowerCase(),
+        ),
+        tap((name) => {
+          this.duplicateNameMatches.set([]);
+          this.duplicateCheckFailed.set(false);
+          this.duplicateCheckLoading.set(Boolean(name));
+        }),
+        switchMap((name) =>
+          name
+            ? this.accountsApi.findActiveNameMatches(name).pipe(
+                map((matches) => ({ matches, failed: false })),
+                catchError(() => of({ matches: [], failed: true })),
+              )
+            : of({ matches: [], failed: false }),
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(({ matches, failed }) => {
+        this.duplicateNameMatches.set(matches);
+        this.duplicateCheckFailed.set(failed);
+        this.duplicateCheckLoading.set(false);
+      });
     this.loadCurrencies();
   }
 
@@ -162,6 +216,10 @@ export class CreateAccount implements OnInit, HasPendingChanges {
       currency: value.currency,
       openingDate: value.openingDate!,
       ...(value.openingBalance === null ? {} : { openingBalance: value.openingBalance }),
+      ...(value.institutionName?.trim() ? { institutionName: value.institutionName.trim() } : {}),
+      ...(value.accountNumberLastFour
+        ? { accountNumberLastFour: value.accountNumberLastFour }
+        : {}),
       ...(value.interestRate === null
         ? {}
         : {

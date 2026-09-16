@@ -10,7 +10,11 @@ import { CreateAccount } from './create-account';
 
 describe('CreateAccount', () => {
   const account = accountFixture();
-  let api: { create: ReturnType<typeof vi.fn>; listCurrencies: ReturnType<typeof vi.fn> };
+  let api: {
+    create: ReturnType<typeof vi.fn>;
+    listCurrencies: ReturnType<typeof vi.fn>;
+    findActiveNameMatches: ReturnType<typeof vi.fn>;
+  };
   let notifications: { show: ReturnType<typeof vi.fn> };
   let presenter: { present: ReturnType<typeof vi.fn> };
   let router: Router;
@@ -19,6 +23,7 @@ describe('CreateAccount', () => {
     api = {
       create: vi.fn().mockReturnValue(of(account)),
       listCurrencies: vi.fn().mockReturnValue(of(['EUR', 'USD', 'ZWG'])),
+      findActiveNameMatches: vi.fn().mockReturnValue(of([])),
     };
     notifications = { show: vi.fn() };
     presenter = { present: vi.fn((error) => error) };
@@ -66,6 +71,8 @@ describe('CreateAccount', () => {
       currency: 'USD',
       openingDate: '2026-08-22',
       openingBalance: 1250.75,
+      institutionName: '  Example Bank  ',
+      accountNumberLastFour: '1234',
       interestRate: 4.25,
     });
     fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit'));
@@ -76,6 +83,8 @@ describe('CreateAccount', () => {
       currency: 'USD',
       openingDate: '2026-08-22',
       openingBalance: 1250.75,
+      institutionName: 'Example Bank',
+      accountNumberLastFour: '1234',
       interestRate: 4.25,
       interestRateType: 'apy',
     });
@@ -96,6 +105,8 @@ describe('CreateAccount', () => {
       currency: 'USD',
       openingDate: '2026-08-22',
       openingBalance: null,
+      institutionName: '',
+      accountNumberLastFour: '',
       interestRate: null,
     });
     fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit'));
@@ -120,6 +131,8 @@ describe('CreateAccount', () => {
       currency: 'USD',
       openingDate: '2026-08-22',
       openingBalance: null,
+      institutionName: '',
+      accountNumberLastFour: '',
       interestRate: null,
     });
     fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit'));
@@ -128,6 +141,65 @@ describe('CreateAccount', () => {
     expect(fixture.nativeElement.textContent).toContain('Currency is not supported');
     expect(presenter.present).toHaveBeenCalledWith(error);
     expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('warns about active duplicate names without blocking account creation', async () => {
+    api.findActiveNameMatches.mockReturnValue(of([account]));
+    const fixture = TestBed.createComponent(CreateAccount);
+    fixture.detectChanges();
+    const form = componentForm(fixture.componentInstance);
+    form.patchValue({
+      name: '  everyday checking ',
+      institutionName: 'Another Bank',
+      accountNumberLastFour: '9876',
+    });
+
+    await vi.waitFor(() =>
+      expect(api.findActiveNameMatches).toHaveBeenCalledWith('everyday checking'),
+    );
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Another active account uses this name.');
+    expect(fixture.nativeElement.textContent).toContain('You can still add this account.');
+    expect(fixture.nativeElement.textContent).toContain(
+      'Everyday Checking · Example Bank · Checking · USD · •••• 1234',
+    );
+
+    fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit'));
+    expect(api.create).toHaveBeenCalled();
+  });
+
+  it('keeps creation available when duplicate-name detection fails', async () => {
+    api.findActiveNameMatches.mockReturnValue(
+      throwError(() => new AppHttpError('network', 'Lookup unavailable', 0)),
+    );
+    const fixture = TestBed.createComponent(CreateAccount);
+    fixture.detectChanges();
+    componentForm(fixture.componentInstance).patchValue({ name: 'Checking' });
+
+    await vi.waitFor(() => expect(api.findActiveNameMatches).toHaveBeenCalledWith('Checking'));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain(
+      "We couldn't check for similar names. You can still add this account.",
+    );
+    fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit'));
+    expect(api.create).toHaveBeenCalled();
+  });
+
+  it('accepts only a four-digit safe account suffix', () => {
+    const fixture = TestBed.createComponent(CreateAccount);
+    fixture.detectChanges();
+    const form = componentForm(fixture.componentInstance);
+    form.patchValue({ name: 'Checking', accountNumberLastFour: '12A4' });
+    form.controls.accountNumberLastFour.markAsTouched();
+
+    fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit'));
+    fixture.detectChanges();
+
+    expect(api.create).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('Enter exactly four digits.');
+    expect(fixture.nativeElement.querySelector('input[maxlength="4"]')).not.toBeNull();
   });
 
   it('blocks submission while the REST currency catalog is unavailable and supports retry', () => {
@@ -212,6 +284,8 @@ function accountFixture(): FinancialAccount {
     currentBalance: 1250.75,
     interestRate: null,
     interestRateType: null,
+    institutionName: 'Example Bank',
+    accountNumberLastFour: '1234',
     status: 'active',
     archivedAt: null,
     createdAt: '2026-08-22T18:30:00Z',

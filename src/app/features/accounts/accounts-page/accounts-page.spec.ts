@@ -45,6 +45,9 @@ describe('AccountsPage', () => {
     expect(fixture.nativeElement.textContent).toContain('$1,250.75');
     expect(fixture.nativeElement.textContent).toContain('Asset · Checking');
     expect(fixture.nativeElement.textContent).toContain('4.25% APY');
+    expect(fixture.nativeElement.textContent).toContain(
+      'Example Bank · Checking · USD · •••• 1234',
+    );
     expect(fixture.nativeElement.querySelector('a[href="/accounts/account-1"]')).not.toBeNull();
   });
 
@@ -53,7 +56,9 @@ describe('AccountsPage', () => {
     fixture.detectChanges();
     const link = fixture.nativeElement.querySelector('.account-card .card-link');
     expect(link.getAttribute('href')).toBe('/accounts/account-1');
-    expect(link.getAttribute('aria-label')).toBe('View and edit Everyday Checking');
+    expect(link.getAttribute('aria-label')).toBe(
+      'View and edit Everyday Checking · Example Bank · Checking · USD · •••• 1234',
+    );
   });
 
   it('loads archived accounts when the filter changes', () => {
@@ -99,6 +104,8 @@ function accountFixture(): FinancialAccount {
     currentBalance: 1250.75,
     interestRate: 4.25,
     interestRateType: 'apy',
+    institutionName: 'Example Bank',
+    accountNumberLastFour: '1234',
     status: 'active',
     archivedAt: null,
     createdAt: '2026-08-22T18:30:00Z',

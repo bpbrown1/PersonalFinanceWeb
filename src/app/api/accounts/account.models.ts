@@ -14,6 +14,8 @@ export interface FinancialAccount {
   currentBalance: number;
   interestRate: number | null;
   interestRateType: InterestRateType | null;
+  institutionName: string | null;
+  accountNumberLastFour: string | null;
   status: AccountStatus;
   archivedAt: string | null;
   createdAt: string;
@@ -31,6 +33,8 @@ export interface CreateFinancialAccountRequest {
   openingBalance?: number;
   interestRate?: number;
   interestRateType?: InterestRateType;
+  institutionName?: string;
+  accountNumberLastFour?: string;
 }
 
 export interface UpdateFinancialAccountRequest {
@@ -41,6 +45,8 @@ export interface UpdateFinancialAccountRequest {
   openingBalance?: number;
   interestRate?: number | null;
   interestRateType?: InterestRateType | null;
+  institutionName?: string | null;
+  accountNumberLastFour?: string | null;
 }
 
 export interface ApiErrorResponse {

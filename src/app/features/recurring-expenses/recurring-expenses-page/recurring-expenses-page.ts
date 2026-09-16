@@ -22,6 +22,7 @@ import { RecurringExpensesApiService } from '../../../api/recurring-expenses/rec
 import { SubmissionState } from '../../../api/request-state/submission-state';
 import { HasPendingChanges } from '../../../core/guards/pending-changes.guard';
 import { NotificationService } from '../../../core/notification.service';
+import { accountLabel } from '../../../shared/accounts/account-label';
 import { PageState } from '../../../shared/page-state/page-state';
 
 @Component({
@@ -82,7 +83,7 @@ export class RecurringExpensesPage implements OnInit, HasPendingChanges {
       { label: 'No linked account', value: '' },
       ...this.accounts()
         .filter((account) => account.status === 'active' && account.currency === currency)
-        .map((account) => ({ label: `${account.name} · ${account.currency}`, value: account.id })),
+        .map((account) => ({ label: accountLabel(account), value: account.id })),
     ];
   });
   protected readonly form = this.formBuilder.group({
@@ -256,7 +257,8 @@ export class RecurringExpensesPage implements OnInit, HasPendingChanges {
 
   protected accountName(id: string | null): string {
     if (!id) return 'No linked account';
-    return this.accounts().find((account) => account.id === id)?.name ?? 'Unavailable account';
+    const account = this.accounts().find((candidate) => candidate.id === id);
+    return account ? accountLabel(account) : 'Unavailable account';
   }
 
   protected endDateBeforeAnchor(): boolean {

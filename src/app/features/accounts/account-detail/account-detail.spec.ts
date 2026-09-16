@@ -49,6 +49,9 @@ describe('AccountDetail', () => {
     expect(fixture.nativeElement.textContent).toContain('Everyday Checking');
     expect(fixture.nativeElement.textContent).toContain('Asset · Checking');
     expect(fixture.nativeElement.textContent).toContain('4.25% APY');
+    expect(fixture.nativeElement.textContent).toContain(
+      'Example Bank · Checking · USD · •••• 1234',
+    );
     expect(fixture.componentInstance.hasPendingChanges()).toBe(false);
     expect(
       fixture.nativeElement.querySelector('a[href="/accounts/account-1/history"]'),
@@ -76,6 +79,22 @@ describe('AccountDetail', () => {
     component.form.controls.currency.markAsDirty();
     component.save();
     expect(api['update']).toHaveBeenCalledWith(account.id, { currency: 'EUR' });
+  });
+
+  it('updates and clears safe account-identification metadata', () => {
+    const fixture = TestBed.createComponent(AccountDetail);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+    component.form.patchValue({
+      institutionName: '  New Credit Union  ',
+      accountNumberLastFour: '',
+    });
+    component.save();
+
+    expect(api['update']).toHaveBeenCalledWith(account.id, {
+      institutionName: 'New Credit Union',
+      accountNumberLastFour: null,
+    });
   });
 
   it('keeps account context visible and blocks saving when the currency catalog fails', () => {
@@ -177,6 +196,8 @@ function accountFixture(): FinancialAccount {
     currentBalance: 1250.75,
     interestRate: 4.25,
     interestRateType: 'apy',
+    institutionName: 'Example Bank',
+    accountNumberLastFour: '1234',
     status: 'active',
     archivedAt: null,
     createdAt: '2026-08-22T18:30:00Z',
