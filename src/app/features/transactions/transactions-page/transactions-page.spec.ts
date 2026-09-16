@@ -845,7 +845,9 @@ describe('TransactionsPage', () => {
 
     expect(fixture.nativeElement.textContent).toContain('Transfer');
     expect(fixture.nativeElement.querySelectorAll('.transaction-card')).toHaveLength(1);
-    expect(fixture.nativeElement.textContent).toContain('Checking · USD → Savings · USD');
+    expect(fixture.nativeElement.textContent).toContain(
+      'Checking · Checking · USD → Savings · Checking · USD',
+    );
   });
 
   it('confirms that deleting a transfer reverses both account balances', () => {
@@ -993,6 +995,8 @@ function accountFixture(overrides: Partial<FinancialAccount> = {}): FinancialAcc
     currentBalance: 100,
     interestRate: null,
     interestRateType: null,
+    institutionName: null,
+    accountNumberLastFour: null,
     status: 'active',
     archivedAt: null,
     createdAt: '2026-01-01T12:00:00Z',

@@ -204,6 +204,8 @@ function accountFixture(): FinancialAccount {
     currentBalance: 900,
     interestRate: null,
     interestRateType: null,
+    institutionName: null,
+    accountNumberLastFour: null,
     status: 'active',
     archivedAt: null,
     createdAt: '2026-01-01T12:00:00Z',

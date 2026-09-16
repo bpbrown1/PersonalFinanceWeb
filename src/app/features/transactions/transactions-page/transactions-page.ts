@@ -45,6 +45,7 @@ import { FinancialTransfer, SaveTransferRequest } from '../../../api/transfers/t
 import { TransfersApiService } from '../../../api/transfers/transfers-api.service';
 import { HasPendingChanges } from '../../../core/guards/pending-changes.guard';
 import { NotificationService } from '../../../core/notification.service';
+import { accountLabel as formatAccountLabel } from '../../../shared/accounts/account-label';
 import { PageState } from '../../../shared/page-state/page-state';
 
 type SummaryPeriod = 'this_month' | 'last_month' | 'year_to_date' | 'custom' | 'all_time';
@@ -185,11 +186,7 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
     { value: '', label: 'All accounts' },
     ...this.accounts().map((account) => ({
       value: account.id,
-      label:
-        account.name +
-        ' · ' +
-        account.currency +
-        (account.status === 'archived' ? ' (archived)' : ''),
+      label: formatAccountLabel(account) + (account.status === 'archived' ? ' (archived)' : ''),
     })),
   ]);
   protected readonly searchCategoryOptions = computed(() => [
@@ -779,7 +776,7 @@ export class TransactionsPage implements OnInit, HasPendingChanges {
   }
   protected accountLabel(id: string): string {
     const account = this.account(id);
-    return account ? `${account.name} · ${account.currency}` : 'Unavailable account';
+    return account ? formatAccountLabel(account) : 'Unavailable account';
   }
   protected currency(transaction: FinancialTransaction): string {
     return this.account(transaction.accountId)?.currency ?? 'USD';

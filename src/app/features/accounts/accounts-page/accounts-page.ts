@@ -7,6 +7,7 @@ import { AccountStatusFilter, FinancialAccount } from '../../../api/accounts/acc
 import { ApiErrorPresenter } from '../../../api/errors/api-error-presenter.service';
 import { AppHttpError } from '../../../api/errors/app-http-error';
 import { NotificationService } from '../../../core/notification.service';
+import { accountIdentifierLabel, accountLabel } from '../../../shared/accounts/account-label';
 import { PageState } from '../../../shared/page-state/page-state';
 
 @Component({
@@ -24,6 +25,8 @@ export class AccountsPage implements OnInit {
   protected readonly loading = signal(true);
   protected readonly error = signal<AppHttpError | null>(null);
   protected readonly changingId = signal<string | null>(null);
+  protected readonly accountIdentifierLabel = accountIdentifierLabel;
+  protected readonly accountDisplayLabel = accountLabel;
 
   ngOnInit(): void {
     this.load();

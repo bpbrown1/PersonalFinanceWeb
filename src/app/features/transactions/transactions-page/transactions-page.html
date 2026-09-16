@@ -90,7 +90,7 @@
         >
           <option value="">Select an account</option>
           @for (account of activeAccounts(); track account.id) {
-            <option [value]="account.id">{{ account.name }} · {{ account.currency }}</option>
+            <option [value]="account.id">{{ accountLabel(account.id) }}</option>
           }
         </select>
         @if (
@@ -411,7 +411,7 @@
             );
             track account.id
           ) {
-            <option [value]="account.id">{{ account.name }} · {{ account.currency }}</option>
+            <option [value]="account.id">{{ accountLabel(account.id) }}</option>
           }
         </select>
         @if (
@@ -437,7 +437,7 @@
             account of transferAccountOptions(transferCreateForm.controls.sourceAccountId.value);
             track account.id
           ) {
-            <option [value]="account.id">{{ account.name }} · {{ account.currency }}</option>
+            <option [value]="account.id">{{ accountLabel(account.id) }}</option>
           }
         </select>
         @if (
@@ -987,7 +987,7 @@
                   );
                   track account.id
                 ) {
-                  <option [value]="account.id">{{ account.name }} · {{ account.currency }}</option>
+                  <option [value]="account.id">{{ accountLabel(account.id) }}</option>
                 }
               </select>
               @if (fieldError(transferEditError(), 'sourceAccountId')) {
@@ -1010,7 +1010,7 @@
                   );
                   track account.id
                 ) {
-                  <option [value]="account.id">{{ account.name }} · {{ account.currency }}</option>
+                  <option [value]="account.id">{{ accountLabel(account.id) }}</option>
                 }
               </select>
               @if (fieldError(transferEditError(), 'destinationAccountId')) {
@@ -1240,7 +1240,7 @@
                 <option value="">Select an account</option>
                 @for (account of accountOptions(transaction.accountId); track account.id) {
                   <option [value]="account.id">
-                    {{ account.name }} · {{ account.currency
+                    {{ accountLabel(account.id)
                     }}{{ account.status === 'archived' ? ' (archived current account)' : '' }}
                   </option>
                 }

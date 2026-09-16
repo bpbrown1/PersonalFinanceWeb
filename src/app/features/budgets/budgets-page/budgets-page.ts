@@ -29,6 +29,7 @@ import { AppHttpError } from '../../../api/errors/app-http-error';
 import { SubmissionState } from '../../../api/request-state/submission-state';
 import { HasPendingChanges } from '../../../core/guards/pending-changes.guard';
 import { NotificationService } from '../../../core/notification.service';
+import { accountLabel } from '../../../shared/accounts/account-label';
 import { PageState } from '../../../shared/page-state/page-state';
 
 type ProgressStatus = 'no_plan' | 'on_track' | 'approaching' | 'at_limit' | 'over_budget';
@@ -597,7 +598,8 @@ export class BudgetsPage implements OnInit, HasPendingChanges {
 
   protected accountName(id: string | null): string {
     if (!id) return 'No linked account';
-    return this.accounts().find((account) => account.id === id)?.name ?? 'Unavailable account';
+    const account = this.accounts().find((candidate) => candidate.id === id);
+    return account ? accountLabel(account) : 'Unavailable account';
   }
 
   protected hasCommitments(progress: BudgetProgress): boolean {
