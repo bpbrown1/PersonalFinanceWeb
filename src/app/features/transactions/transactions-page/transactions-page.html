@@ -916,6 +916,9 @@
                 <span class="type-pill" [class.income]="transaction.type === 'income'">
                   {{ transactionTypeLabel(transaction.type) }}
                 </span>
+                @if (transaction.provenance !== 'manual') {
+                  <span class="provenance-pill">{{ transaction.provenance | titlecase }}</span>
+                }
               </td>
               <td data-label="Amount" class="amount-column">
                 <strong [class.negative]="transaction.balanceImpact < 0">
@@ -1568,6 +1571,10 @@
                 </dd>
               </div>
             }
+            <div>
+              <dt>Source</dt>
+              <dd>{{ transaction.provenance | titlecase }}</dd>
+            </div>
             @if (transaction.notes) {
               <div>
                 <dt>Notes</dt>
@@ -1600,7 +1607,11 @@
             <p class="field-error" role="alert">{{ lifecycleError()!.error.userMessage }}</p>
           }
           <footer>
-            @if (transaction.status === 'active') {
+            @if (transaction.provenance === 'reconciliation') {
+              <span class="immutable-note"
+                >Reconciliation adjustments are preserved as audit records.</span
+              >
+            } @else if (transaction.status === 'active') {
               <button
                 type="button"
                 class="text-button"

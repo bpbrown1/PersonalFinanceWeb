@@ -39,6 +39,14 @@ export const routes: Routes = [
               ),
           },
           {
+            path: ':accountId/reconcile',
+            title: 'Reconcile account · Personal Finance',
+            loadComponent: () =>
+              import('./features/accounts/account-reconciliation/account-reconciliation').then(
+                (m) => m.AccountReconciliationPage,
+              ),
+          },
+          {
             path: ':accountId',
             title: 'Account details · Personal Finance',
             canDeactivate: [pendingChangesGuard],
