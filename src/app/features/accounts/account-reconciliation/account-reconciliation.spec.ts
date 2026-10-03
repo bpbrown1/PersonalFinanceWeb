@@ -69,6 +69,39 @@ describe('AccountReconciliationPage', () => {
                   createdAt: '2026-01-01T00:00:00Z',
                   updatedAt: '2026-01-01T00:00:00Z',
                 },
+                {
+                  id: 'expense-category',
+                  ownerId: 'owner-1',
+                  name: 'Interest charges',
+                  applicability: 'expense',
+                  parentId: null,
+                  status: 'active',
+                  archivedAt: null,
+                  createdAt: '2026-01-01T00:00:00Z',
+                  updatedAt: '2026-01-01T00:00:00Z',
+                },
+                {
+                  id: 'both-category',
+                  ownerId: 'owner-1',
+                  name: 'Adjustments',
+                  applicability: 'both',
+                  parentId: null,
+                  status: 'active',
+                  archivedAt: null,
+                  createdAt: '2026-01-01T00:00:00Z',
+                  updatedAt: '2026-01-01T00:00:00Z',
+                },
+                {
+                  id: 'archived-expense-category',
+                  ownerId: 'owner-1',
+                  name: 'Old fees',
+                  applicability: 'expense',
+                  parentId: null,
+                  status: 'archived',
+                  archivedAt: '2026-08-01T00:00:00Z',
+                  createdAt: '2026-01-01T00:00:00Z',
+                  updatedAt: '2026-08-01T00:00:00Z',
+                },
               ]),
             ),
           },
@@ -133,6 +166,56 @@ describe('AccountReconciliationPage', () => {
     expect(page.result()?.transactionId).toBe('transaction-1');
   });
 
+  it('does not submit a discrepancy when category, explanation, or review confirmation is missing', () => {
+    const page = component as any;
+    page.preview.set(previewFixture());
+
+    for (const value of [
+      { categoryId: '', explanation: 'Interest posted by the bank', confirmed: true },
+      { categoryId: 'income-category', explanation: '   ', confirmed: true },
+      {
+        categoryId: 'income-category',
+        explanation: 'Interest posted by the bank',
+        confirmed: false,
+      },
+    ]) {
+      page.confirmForm.setValue(value);
+      page.confirm();
+    }
+
+    expect(reconciliationsApi.confirm).not.toHaveBeenCalled();
+    expect(page.confirmForm.touched).toBe(true);
+  });
+
+  it('uses active expense-compatible categories for a negative adjustment', () => {
+    const page = component as any;
+    page.preview.set(previewFixture({ difference: -15, adjustmentType: 'expense' }));
+
+    expect(page.compatibleCategories().map((category: { id: string }) => category.id)).toEqual([
+      'expense-category',
+      'both-category',
+    ]);
+
+    page.confirmForm.setValue({
+      categoryId: 'expense-category',
+      explanation: 'Statement interest charge',
+      confirmed: true,
+    });
+    reconciliationsApi.confirm.mockReturnValue(
+      of(resultFixture({ difference: -15, explanation: 'Statement interest charge' })),
+    );
+    page.confirm();
+
+    expect(reconciliationsApi.confirm).toHaveBeenCalledWith(
+      'account-1',
+      expect.objectContaining({
+        categoryId: 'expense-category',
+        explanation: 'Statement interest charge',
+      }),
+      expect.any(String),
+    );
+  });
+
   it('records a zero-difference reconciliation without an adjustment category', () => {
     const page = component as any;
     page.preview.set(previewFixture({ difference: 0, adjustmentType: null }));
@@ -177,6 +260,46 @@ describe('AccountReconciliationPage', () => {
     expect(page.stalePreview()).toBe(true);
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('This comparison is stale.');
+  });
+
+  it('refreshes a stale comparison and confirms with the replacement ledger token', () => {
+    const page = component as any;
+    page.statementForm.setValue({ statementDate: '2026-09-15', statementBalance: 110 });
+    reconciliationsApi.preview.mockReturnValueOnce(of(previewFixture()));
+    page.review();
+    page.confirmForm.setValue({
+      categoryId: 'income-category',
+      explanation: 'Interest posted by the bank',
+      confirmed: true,
+    });
+    reconciliationsApi.confirm.mockReturnValueOnce(
+      throwError(() => new AppHttpError('client', 'Preview is stale', 409)),
+    );
+    page.confirm();
+
+    reconciliationsApi.preview.mockReturnValueOnce(
+      of(previewFixture({ calculatedBalance: 105, difference: 5, ledgerToken: 'fresh-token' })),
+    );
+    page.review();
+
+    expect(page.stalePreview()).toBe(false);
+    expect(page.preview().ledgerToken).toBe('fresh-token');
+
+    page.confirmForm.setValue({
+      categoryId: 'income-category',
+      explanation: 'Interest posted by the bank',
+      confirmed: true,
+    });
+    reconciliationsApi.confirm.mockReturnValueOnce(
+      of(resultFixture({ difference: 5, ledgerToken: 'fresh-token' })),
+    );
+    page.confirm();
+
+    expect(reconciliationsApi.confirm).toHaveBeenLastCalledWith(
+      'account-1',
+      expect.objectContaining({ ledgerToken: 'fresh-token' }),
+      expect.any(String),
+    );
   });
 });
 
