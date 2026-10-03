@@ -675,6 +675,34 @@ describe('TransactionsPage', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Record an expense');
   });
 
+  it('prefills interest income entry from reconciliation query parameters', async () => {
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl('/transactions?mode=income&accountId=account-1');
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+
+    expect(component.createMode()).toBe('income');
+    expect(component.createForm.controls.type.value).toBe('income');
+    expect(component.createForm.controls.accountId.value).toBe('account-1');
+    expect(component.createForm.controls.description.value).toBe('Interest income');
+    expect(fixture.nativeElement.textContent).toContain('Record income');
+  });
+
+  it('prefills interest charge entry from reconciliation query parameters', async () => {
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl('/transactions?mode=expense&accountId=account-1');
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+
+    expect(component.createMode()).toBe('expense');
+    expect(component.createForm.controls.type.value).toBe('expense');
+    expect(component.createForm.controls.accountId.value).toBe('account-1');
+    expect(component.createForm.controls.description.value).toBe('Interest charge or fee');
+    expect(fixture.nativeElement.textContent).toContain('Record an expense');
+  });
+
   it('uses a compact ledger toolbar for status and period controls', () => {
     const fixture = TestBed.createComponent(TransactionsPage);
     fixture.detectChanges();
@@ -794,6 +822,48 @@ describe('TransactionsPage', () => {
     expect(fixture.nativeElement.textContent).toContain('Transaction details');
     expect(fixture.nativeElement.textContent).toContain('Client meeting');
     expect(fixture.nativeElement.textContent).toContain('receipt-42');
+  });
+
+  it('distinguishes imported and reconciliation provenance in ledger results', () => {
+    transactionsApi.search.mockReturnValue(
+      of(
+        pageFixture([
+          transactionFixture({ id: 'manual', provenance: 'manual' }),
+          transactionFixture({ id: 'imported', provenance: 'imported' }),
+          transactionFixture({ id: 'reconciled', provenance: 'reconciliation' }),
+        ]),
+      ),
+    );
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    const badges = Array.from(
+      fixture.nativeElement.querySelectorAll('.provenance-pill'),
+      (element: Element) => element.textContent?.trim(),
+    );
+
+    expect(badges).toEqual(['Imported', 'Reconciliation']);
+  });
+
+  it('keeps reconciliation adjustments immutable in transaction details', () => {
+    const adjustment = transactionFixture({
+      reconciliationId: 'reconciliation-1',
+      provenance: 'reconciliation',
+      description: 'Reconciliation adjustment',
+    });
+    transactionsApi.get.mockReturnValue(of(adjustment));
+    const fixture = TestBed.createComponent(TransactionsPage);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+
+    component.openDetails(adjustment);
+    fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector('.transaction-card');
+    expect(card.querySelector('.immutable-note').textContent).toContain(
+      'preserved as audit records',
+    );
+    expect(card.querySelectorAll('footer button')).toHaveLength(0);
+    expect(card.textContent).toContain('Reconciliation');
   });
 
   it('renders one aggregate transfer instead of its two ledger legs', () => {
